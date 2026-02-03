@@ -1,0 +1,40 @@
+# Core dependencies
+langgraph==0.2.54
+langchain==0.3.13
+langchain-openai==0.2.14
+langchain-community==0.3.27
+
+# WhatsApp integration
+whatsapp-web.py==0.2.5
+
+# Vector database for knowledge base
+chromadb==0.5.23
+sentence-transformers==3.3.1
+
+# Email functionality
+sendgrid==6.11.0
+
+# Google Calendar integration
+google-auth==2.37.0
+google-auth-oauthlib==1.2.1
+google-api-python-client==2.159.0
+
+# Utilities
+python-dotenv==1.0.1
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# Web server
+fastapi==0.115.6
+uvicorn==0.34.0
+
+# HTTP requests
+httpx==0.28.1
+requests==2.32.3
+
+# Logging
+structlog==24.4.0
+
+# Testing
+pytest==8.3.4
+pytest-mock==3.14.0

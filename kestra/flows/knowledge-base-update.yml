@@ -1,0 +1,34 @@
+id: knowledge-base-update
+namespace: whatsapp-chatbot
+
+description: Workflow to update the knowledge base with new documents
+
+inputs:
+  - name: knowledge_files_path
+    type: STRING
+    description: Path to new knowledge files
+    defaults: /app/knowledge_base
+
+tasks:
+  - id: log_update_start
+    type: io.kestra.core.tasks.log.Log
+    message: "Starting knowledge base update from {{ inputs.knowledge_files_path }}"
+
+  - id: rebuild_vector_db
+    type: io.kestra.plugin.scripts.python.Commands
+    docker:
+      image: python:3.11-slim
+    beforeCommands:
+      - pip install -r /app/requirements.txt
+    commands:
+      - python -c "from src.services import KnowledgeBaseService; import shutil; import os; shutil.rmtree(os.getenv('VECTOR_DB_PATH', './data/vector_db'), ignore_errors=True); kb = KnowledgeBaseService(); print('Knowledge base updated successfully')"
+
+  - id: log_update_complete
+    type: io.kestra.core.tasks.log.Log
+    message: "Knowledge base update completed"
+
+triggers:
+  - id: daily_update
+    type: io.kestra.core.models.triggers.types.Schedule
+    cron: "0 2 * * *"  # Run daily at 2 AM
+    disabled: true  # Enable when ready
