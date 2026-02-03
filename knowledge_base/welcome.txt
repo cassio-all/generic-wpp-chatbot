@@ -1,0 +1,40 @@
+# Bem-vindo ao Chatbot Genérico
+
+Este é um chatbot genérico para WhatsApp que pode responder perguntas, agendar reuniões e enviar e-mails.
+
+## Funcionalidades
+
+### Consulta de Informações
+Você pode fazer perguntas sobre qualquer informação contida na base de conhecimento. O chatbot usa inteligência artificial para encontrar as respostas mais relevantes.
+
+### Agendamento de Reuniões
+O chatbot pode agendar reuniões no Google Calendar. Basta informar:
+- Data e hora da reunião
+- Título/assunto
+- Duração
+- Participantes (opcional)
+
+Exemplo: "Agende uma reunião amanhã às 14h sobre planejamento trimestral"
+
+### Envio de E-mails
+O chatbot pode enviar e-mails através do SendGrid. Informe:
+- E-mail do destinatário
+- Assunto
+- Conteúdo da mensagem
+
+Exemplo: "Envie um e-mail para cliente@example.com com assunto 'Proposta comercial'"
+
+## Como Usar
+
+Basta enviar uma mensagem descrevendo o que você precisa. O chatbot irá:
+1. Identificar sua intenção
+2. Buscar informações relevantes (se necessário)
+3. Executar a ação solicitada
+4. Responder de forma clara e útil
+
+## Personalização
+
+Esta é uma base de conhecimento genérica. Para personalizar:
+1. Adicione arquivos .txt na pasta knowledge_base/
+2. Inclua informações específicas do seu negócio
+3. O chatbot aprenderá automaticamente com o novo conteúdo
