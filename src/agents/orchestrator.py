@@ -1,6 +1,7 @@
 """Main orchestrator using LangGraph."""
 from typing import Literal
 from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import HumanMessage
 from src.agents.state import AgentState
 from src.agents.router_agent import RouterAgent
@@ -8,6 +9,8 @@ from src.agents.knowledge_agent import KnowledgeAgent
 from src.agents.calendar_agent import CalendarAgent
 from src.agents.email_agent import EmailAgent
 from src.agents.general_chat_agent import GeneralChatAgent
+from src.agents.summary_agent import SummaryAgent
+from src.config import settings
 import structlog
 
 logger = structlog.get_logger()
@@ -23,6 +26,10 @@ class ChatbotOrchestrator:
         self.calendar_agent = CalendarAgent()
         self.email_agent = EmailAgent()
         self.general_chat_agent = GeneralChatAgent()
+        self.summary_agent = SummaryAgent()
+        
+        # Initialize memory saver for conversation persistence
+        self.memory = MemorySaver()
         
         self.graph = self._build_graph()
     
@@ -72,39 +79,132 @@ class ChatbotOrchestrator:
         workflow.add_edge("email", END)
         workflow.add_edge("general_chat", END)
         
-        return workflow.compile()
+        # Compile with memory checkpointer
+        return workflow.compile(checkpointer=self.memory)
     
-    def process_message(self, message: str, sender: str = "user") -> str:
-        """Process a message through the agent graph.
+    def process_message(self, message: str, sender: str = "user", thread_id: str = "default") -> str:
+        """Process a message through the agent graph with conversation memory.
         
         Args:
             message: The message to process
             sender: The sender identifier
+            thread_id: Unique identifier for conversation thread
             
         Returns:
             The response message
         """
-        logger.info("Processing message", sender=sender, message=message[:50])
+        logger.info("Processing message", 
+                   sender=sender, 
+                   thread_id=thread_id,
+                   message=message[:50])
         
-        # Initialize state
-        initial_state: AgentState = {
-            "messages": [HumanMessage(content=message)],
-            "intent": "",
-            "sender": sender,
-            "should_use_tools": False,
-            "response": ""
-        }
+        # Configuration for this thread
+        config = {"configurable": {"thread_id": thread_id}}
+        
+        # Get current state to check history
+        try:
+            current_state = self.graph.get_state(config)
+            existing_messages = current_state.values.get("messages", []) if current_state.values else []
+            existing_summary = current_state.values.get("conversation_summary", "") if current_state.values else ""
+        except:
+            existing_messages = []
+            existing_summary = ""
+        
+        # Check if we need to summarize history
+        if settings.enable_conversation_summary and existing_messages:
+            if self.summary_agent.should_summarize(
+                existing_messages, 
+                settings.max_history_tokens
+            ):
+                logger.info("Summarizing conversation history due to token limit")
+                compressed_messages, new_summary = self.summary_agent.compress_history(
+                    existing_messages,
+                    existing_summary,
+                    settings.keep_recent_messages
+                )
+                
+                # Update state with compressed history
+                initial_state: AgentState = {
+                    "messages": compressed_messages + [HumanMessage(content=message)],
+                    "intent": "",
+                    "sender": sender,
+                    "should_use_tools": False,
+                    "response": "",
+                    "conversation_summary": new_summary,
+                    "message_count": len(existing_messages) + 1,
+                    "total_tokens": self.summary_agent.count_tokens(compressed_messages)
+                }
+            else:
+                # No summarization needed
+                initial_state: AgentState = {
+                    "messages": [HumanMessage(content=message)],
+                    "intent": "",
+                    "sender": sender,
+                    "should_use_tools": False,
+                    "response": "",
+                    "conversation_summary": existing_summary,
+                    "message_count": len(existing_messages) + 1,
+                    "total_tokens": self.summary_agent.count_tokens(existing_messages)
+                }
+        else:
+            # First message or summarization disabled
+            initial_state: AgentState = {
+                "messages": [HumanMessage(content=message)],
+                "intent": "",
+                "sender": sender,
+                "should_use_tools": False,
+                "response": "",
+                "conversation_summary": "",
+                "message_count": 1,
+                "total_tokens": 0
+            }
         
         try:
-            # Run the graph
-            final_state = self.graph.invoke(initial_state)
+            # Run the graph with memory persistence
+            final_state = self.graph.invoke(initial_state, config)
             
             response = final_state.get("response", "Desculpe, não consegui processar sua mensagem.")
             
-            logger.info("Message processed successfully", response_length=len(response))
+            # Log conversation stats
+            total_tokens = final_state.get("total_tokens", 0)
+            message_count = final_state.get("message_count", 0)
+            
+            logger.info("Message processed successfully", 
+                       response_length=len(response),
+                       thread_id=thread_id,
+                       message_count=message_count,
+                       total_tokens=total_tokens)
             
             return response
             
         except Exception as e:
-            logger.error("Error processing message", error=str(e))
+            logger.error("Error processing message", 
+                        error=str(e),
+                        thread_id=thread_id)
             return "Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente."
+    
+    def get_conversation_history(self, thread_id: str = "default") -> list:
+        """Get conversation history for a thread.
+        
+        Args:
+            thread_id: Thread identifier
+            
+        Returns:
+            List of messages in the conversation
+        """
+        config = {"configurable": {"thread_id": thread_id}}
+        try:
+            state = self.graph.get_state(config)
+            return state.values.get("messages", []) if state.values else []
+        except:
+            return []
+    
+    def clear_conversation(self, thread_id: str = "default") -> None:
+        """Clear conversation history for a thread.
+        
+        Args:
+            thread_id: Thread identifier
+        """
+        logger.info("Clearing conversation history", thread_id=thread_id)
+        # Note: MemorySaver doesn't have a direct clear method
+        # New conversations will start fresh automatically
