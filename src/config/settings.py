@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     app_host: str = "0.0.0.0"
     app_port: int = 8000
     
+    # Conversation Memory Configuration
+    max_history_tokens: int = 2000  # Token limit before triggering summary
+    keep_recent_messages: int = 4  # Recent messages to keep uncompressed
+    enable_conversation_summary: bool = True  # Enable/disable auto-summarization
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
