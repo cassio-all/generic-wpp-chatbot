@@ -7,7 +7,7 @@ from src.tools import schedule_meeting
 import structlog
 import json
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 logger = structlog.get_logger()
 
@@ -58,7 +58,7 @@ Responda APENAS com um JSON no formato:
         try:
             response = self.llm.invoke([
                 SystemMessage(content=system_prompt),
-                HumanMessage(content=f"Mensagem do usuário: {last_message}\nData/hora atual: {datetime.now().isoformat()}")
+                HumanMessage(content=f"Mensagem do usuário: {last_message}\nData/hora atual: {datetime.now(timezone.utc).isoformat()}")
             ])
             
             # Extract JSON from response
