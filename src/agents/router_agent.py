@@ -31,6 +31,14 @@ class RouterAgent:
         messages = state["messages"]
         last_message = messages[-1].content if messages else ""
         
+        # Check if user is in the middle of a conversation flow
+        # If there's a pending_meeting, they're responding to calendar conflict resolution
+        if state.get("pending_meeting") or state.get("awaiting_reschedule_time"):
+            logger.info("Detected pending calendar interaction, routing to calendar agent")
+            state["intent"] = "schedule_meeting"
+            state["should_use_tools"] = True
+            return state
+        
         system_prompt = """You are a router agent. Analyze the user's message and determine their intent.
         
 Available intents:
