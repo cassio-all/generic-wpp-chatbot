@@ -4,6 +4,10 @@ langchain==0.3.26
 langchain-openai==0.2.14
 langchain-community==0.3.27
 
+# Persistence layer (SQLite for conversation history)
+langgraph-checkpoint-sqlite<3.0.0
+aiosqlite<1.0.0
+
 # WhatsApp integration (opcional - apenas para integração real)
 # whatsapp-web.py==0.2.5
 
