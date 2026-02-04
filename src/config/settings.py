@@ -13,9 +13,9 @@ class Settings(BaseSettings):
     whatsapp_session_name: str = "generic-wpp-chatbot"
     whatsapp_headless: bool = True
     
-    # Email Configuration
-    sendgrid_api_key: Optional[str] = None
-    sender_email: Optional[str] = None
+    # Email Configuration (Gmail SMTP)
+    gmail_address: Optional[str] = None
+    gmail_app_password: Optional[str] = None
     
     # Google Calendar Configuration
     google_calendar_credentials_path: str = "./credentials/google_calendar_credentials.json"
