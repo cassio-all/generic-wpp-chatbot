@@ -1,7 +1,7 @@
 """Main orchestrator using LangGraph."""
 from typing import Literal
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langchain_core.messages import HumanMessage
 from src.agents.state import AgentState
 from src.agents.router_agent import RouterAgent
@@ -12,6 +12,7 @@ from src.agents.general_chat_agent import GeneralChatAgent
 from src.agents.summary_agent import SummaryAgent
 from src.config import settings
 import structlog
+import os
 
 logger = structlog.get_logger()
 
@@ -28,8 +29,16 @@ class ChatbotOrchestrator:
         self.general_chat_agent = GeneralChatAgent()
         self.summary_agent = SummaryAgent()
         
-        # Initialize memory saver for conversation persistence
-        self.memory = MemorySaver()
+        # Ensure data directory exists
+        os.makedirs("./data", exist_ok=True)
+        
+        # Initialize SQLite checkpointer for persistent conversation history
+        # SqliteSaver is used synchronously (not async) and manages connections automatically
+        # Conversations are stored in ./data/checkpoints.db and survive restarts
+        import sqlite3
+        conn = sqlite3.connect("./data/checkpoints.db", check_same_thread=False)
+        self.memory = SqliteSaver(conn)
+        logger.info("✅ SQLite persistence enabled - conversations survive restarts", db_path="./data/checkpoints.db")
         
         self.graph = self._build_graph()
     

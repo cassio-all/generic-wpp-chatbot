@@ -4,6 +4,10 @@ langchain==0.3.26
 langchain-openai==0.2.14
 langchain-community==0.3.27
 
+# Persistence layer (SQLite for conversation history)
+langgraph-checkpoint-sqlite<3.0.0
+aiosqlite<1.0.0
+
 # WhatsApp integration (opcional - apenas para integração real)
 # whatsapp-web.py==0.2.5
 
@@ -11,8 +15,7 @@ langchain-community==0.3.27
 chromadb==0.5.23
 sentence-transformers==3.3.1
 
-# Email functionality
-sendgrid==6.11.0
+# Email functionality (built-in smtplib, no extra dependencies needed)
 
 # Google Calendar integration
 google-auth==2.37.0
