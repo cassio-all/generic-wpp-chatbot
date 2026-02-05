@@ -9,6 +9,7 @@ from .calendar_tool import (
     update_meeting
 )
 from .knowledge_tool import search_knowledge_base
+from .web_search_tool import web_search, search_news
 
 __all__ = [
     "send_email",
@@ -19,4 +20,6 @@ __all__ = [
     "cancel_meeting",
     "update_meeting",
     "search_knowledge_base",
+    "web_search",
+    "search_news",
 ]
