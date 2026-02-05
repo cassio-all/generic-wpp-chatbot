@@ -93,7 +93,11 @@ Exemplos:
                 result = web_search(query, max_results=max_results)
             
             if result["status"] == "error":
-                response_text = f"❌ Erro na busca: {result['message']}"
+                # User-friendly error message
+                if "Aguarde alguns segundos" in result['message']:
+                    response_text = result['message']
+                else:
+                    response_text = f"❌ Não consegui fazer a busca no momento. Tente novamente em alguns segundos ou reformule sua pergunta."
             elif not result["results"]:
                 response_text = f"🔍 Não encontrei resultados para: **{query}**\n\nTente reformular sua busca."
             else:

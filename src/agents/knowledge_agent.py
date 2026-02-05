@@ -1,9 +1,10 @@
 """Knowledge agent for answering questions using the knowledge base."""
+from datetime import datetime
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from src.config import settings
 from src.agents.state import AgentState
-from src.tools import search_knowledge_base
+from src.tools import search_knowledge_base, web_search
 import structlog
 
 logger = structlog.get_logger()
@@ -44,15 +45,62 @@ class KnowledgeAgent:
         results = search_result.get("results", [])
         
         if not results:
+            # NO KNOWLEDGE FOUND → Try web search as fallback
+            logger.info("No knowledge base results, trying web search fallback", query=last_message)
+            
+            web_result = web_search(last_message, max_results=3)
+            
+            if web_result["status"] == "success" and web_result.get("results"):
+                # Found on web! Format and return
+                logger.info("Web search fallback successful", num_results=len(web_result["results"]))
+                
+                web_context = "\n\n".join([
+                    f"**{r['title']}**\n{r['snippet']}\nFonte: {r['url']}" 
+                    for r in web_result["results"]
+                ])
+                
+                system_prompt = f"""Você é um assistente útil do WhatsApp.
+A pergunta do usuário não estava na base de conhecimento local, mas encontrei informações na web.
+Use os resultados abaixo para responder de forma clara e concisa.
+
+DATA ATUAL: {datetime.now().strftime("%Y-%m-%d (%A, %d de %B de %Y)")}
+
+IMPORTANTE: 
+- Responda de forma natural, como se você soubesse a informação
+- VALIDE datas e informações temporais contra a data atual
+- Se a informação parecer desatualizada ou inconsistente, mencione isso
+- Cite as fontes ao final se relevante
+- Se perguntar sobre aniversário/data, responda apenas o DIA e MÊS (ex: "15 de março"), não invente anos ou contextos temporais"""
+                
+                try:
+                    response = self.llm.invoke([
+                        SystemMessage(content=system_prompt),
+                        HumanMessage(content=f"Resultados da busca:\n{web_context}\n\nPergunta: {last_message}")
+                    ])
+                    
+                    state["response"] = response.content
+                    state["messages"] = state["messages"] + [AIMessage(content=response.content)]
+                    logger.info("Knowledge query answered via web search fallback")
+                    return state
+                    
+                except Exception as e:
+                    logger.error("Error formatting web search results", error=str(e))
+                    # Continue to "no info" response below
+            
+            # No results from knowledge base OR web search
             system_prompt = """Você é um assistente útil do WhatsApp. 
-O usuário fez uma pergunta, mas não encontrei informações relevantes na base de conhecimento.
+O usuário fez uma pergunta, mas não encontrei informações relevantes na base de conhecimento nem na internet.
 Responda de forma educada que você não tem essas informações específicas no momento."""
             
-            context = "Nenhuma informação relevante encontrada na base de conhecimento."
+            context = "Nenhuma informação relevante encontrada."
         else:
-            system_prompt = """Você é um assistente útil do WhatsApp. 
+            system_prompt = f"""Você é um assistente útil do WhatsApp. 
 Use as informações da base de conhecimento abaixo para responder à pergunta do usuário.
-Seja claro, conciso e útil. Responda em português."""
+
+DATA ATUAL: {datetime.now().strftime("%Y-%m-%d (%A, %d de %B de %Y)")}
+
+Seja claro, conciso e útil. Responda em português.
+Se a pergunta envolver datas ou informações temporais, valide a consistência com a data atual."""
             
             context = "\n\n".join([f"Documento {i+1}:\n{doc}" for i, doc in enumerate(results)])
         

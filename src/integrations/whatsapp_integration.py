@@ -152,6 +152,11 @@ class WhatsAppClient:
                 logger.debug("Ignoring status broadcast message")
                 return
             
+            # Ignore group messages
+            if msg_data.get("isGroup", False) or "@g.us" in from_number:
+                logger.debug("Ignoring group message", from_number=from_number)
+                return
+            
             contact = msg_data.get("contact", {})
             message = WhatsAppMessage(
                 id=msg_data["id"],

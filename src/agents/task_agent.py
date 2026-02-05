@@ -95,8 +95,11 @@ Retorne apenas a palavra."""
         
         system_prompt = """Você é um assistente de gerenciamento de tarefas.
 
-Extraia as informações da tarefa da mensagem do usuário e retorne um JSON:
+Analise a mensagem do usuário:
+1. Se for uma instrução GENÉRICA sem conteúdo específico (ex: "criar tarefa", "adicionar task", "fazer TODO"), retorne: {"needs_info": true}
+2. Se tiver informações CONCRETAS sobre a tarefa, extraia e retorne JSON:
 {
+    "needs_info": false,
     "title": "título da tarefa (obrigatório)",
     "description": "descrição detalhada (opcional)",
     "priority": "low|medium|high|urgent (padrão: medium)",
@@ -105,10 +108,16 @@ Extraia as informações da tarefa da mensagem do usuário e retorne um JSON:
 
 Data/hora atual: """ + datetime.now().strftime("%Y-%m-%d %H:%M") + """
 
-Exemplos:
-- "criar tarefa comprar leite" -> {"title": "comprar leite", "priority": "medium"}
-- "adicionar tarefa urgente: revisar código até amanhã" -> {"title": "revisar código", "priority": "urgent", "deadline": "2026-02-06"}
-- "TODO: estudar Python, alta prioridade" -> {"title": "estudar Python", "priority": "high"}
+EXEMPLOS DE MENSAGENS GENÉRICAS (needs_info=true):
+- "criar tarefa" ❌
+- "adicionar uma task" ❌
+- "fazer TODO" ❌
+- "criar uma tarefa" ❌
+
+EXEMPLOS COM INFORMAÇÃO (needs_info=false):
+- "criar tarefa comprar leite" ✅ -> {"needs_info": false, "title": "comprar leite", "priority": "medium"}
+- "adicionar tarefa urgente: revisar código até amanhã" ✅ -> {"needs_info": false, "title": "revisar código", "priority": "urgent", "deadline": "2026-02-06"}
+- "TODO: estudar Python, alta prioridade" ✅ -> {"needs_info": false, "title": "estudar Python", "priority": "high"}
 
 Retorne apenas o JSON."""
 
@@ -125,8 +134,15 @@ Retorne apenas o JSON."""
             
             task_info = json.loads(json_match.group())
             
+            # Check if we need more information
+            if task_info.get("needs_info", False):
+                response_text = "📝 Claro! Qual tarefa você quer criar? Por favor, descreva o que precisa ser feito."
+                state["response"] = response_text
+                state["messages"] = state["messages"] + [AIMessage(content=response_text)]
+                return state
+            
             if not task_info.get("title"):
-                response_text = "Não consegui identificar o título da tarefa. Por favor, seja mais específico."
+                response_text = "Não consegui identificar o título da tarefa. Por favor, seja mais específico sobre o que precisa ser feito."
                 state["response"] = response_text
                 state["messages"] = state["messages"] + [AIMessage(content=response_text)]
                 return state

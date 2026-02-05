@@ -28,13 +28,15 @@ def web_search(
             results = list(ddgs.text(
                 keywords=query,
                 region=region,
-                max_results=max_results
+                max_results=max_results,
+                safesearch='moderate',
+                timelimit=None
             ))
         
         if not results:
             return {
                 "status": "success",
-                "message": "No results found",
+                "message": "Não encontrei resultados para essa busca. Tente reformular a pergunta.",
                 "results": []
             }
         
@@ -57,10 +59,21 @@ def web_search(
         }
     
     except Exception as e:
-        logger.error("Error performing web search", error=str(e), query=query)
+        error_msg = str(e)
+        
+        # Better error messages for common issues
+        if "403" in error_msg or "Ratelimit" in error_msg:
+            logger.warning("Rate limit hit on web search", query=query)
+            return {
+                "status": "error",
+                "message": "Desculpe, muitas buscas recentes. Aguarde alguns segundos e tente novamente, ou reformule sua pergunta.",
+                "results": []
+            }
+        
+        logger.error("Error performing web search", error=error_msg, query=query)
         return {
             "status": "error",
-            "message": f"Search failed: {str(e)}",
+            "message": f"Não consegui fazer a busca no momento. Erro: {error_msg[:100]}",
             "results": []
         }
 

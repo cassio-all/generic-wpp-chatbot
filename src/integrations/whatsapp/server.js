@@ -98,6 +98,13 @@ async function handlePythonMessage(message) {
 async function sendWhatsAppMessage(to, text) {
     try {
         const chatId = to.includes('@c.us') ? to : `${to}@c.us`;
+        
+        // Don't send to broadcasts
+        if (chatId === 'status@broadcast' || chatId.includes('broadcast')) {
+            console.log('⚠️ Ignoring message to broadcast channel');
+            return;
+        }
+        
         await whatsappClient.sendMessage(chatId, text);
         
         sendToPython({
@@ -106,9 +113,9 @@ async function sendWhatsAppMessage(to, text) {
             success: true
         });
         
-        console.log(`✅ Message sent to ${chatId}`);
+        console.log(`✅ Message sent to ${chatId.split('@')[0]}`);
     } catch (error) {
-        console.error('❌ Error sending message:', error);
+        console.error('❌ Error sending message:', error.message);
         sendToPython({
             type: 'message_sent',
             to: to,
@@ -122,11 +129,17 @@ async function sendWhatsAppMessage(to, text) {
 async function sendTyping(to) {
     try {
         const chatId = to.includes('@c.us') ? to : `${to}@c.us`;
+        
+        // Don't send typing to broadcasts
+        if (chatId === 'status@broadcast' || chatId.includes('broadcast')) {
+            return;
+        }
+        
         const chat = await whatsappClient.getChatById(chatId);
         await chat.sendStateTyping();
-        console.log(`⌨️ Typing sent to ${chatId}`);
     } catch (error) {
-        console.error('❌ Error sending typing:', error);
+        // Silently fail - typing indicators are not critical
+        console.debug('Could not send typing indicator');
     }
 }
 
@@ -233,7 +246,22 @@ whatsappClient.on('message', async (message) => {
     // Only process messages from users (not from us)
     if (message.fromMe) return;
     
-    console.log(`📨 Message from ${message.from}: ${message.body}`);
+    // Ignore status broadcasts (Stories) - silently
+    if (message.from === 'status@broadcast' || message.from.includes('broadcast')) {
+        return;
+    }
+    
+    // Ignore group messages - silently (no log spam)
+    if (message.from.includes('@g.us')) {
+        return;
+    }
+    
+    // Truncate message for logs
+    const bodyPreview = message.body.length > 50 ? 
+        message.body.substring(0, 50) + '...' : 
+        message.body;
+    
+    console.log(`📨 Message from ${message.from.split('@')[0]}: ${bodyPreview}`);
     
     // Get contact info
     const contact = await message.getContact();
