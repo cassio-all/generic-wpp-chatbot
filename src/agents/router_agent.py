@@ -42,10 +42,30 @@ class RouterAgent:
         system_prompt = """You are a router agent. Analyze the user's message and determine their intent.
         
 Available intents:
-- "knowledge_query": User is asking a question that might be answered from the knowledge base
+- "knowledge_query": User is asking a question that might be answered from the knowledge base (internal documents)
 - "schedule_meeting": User wants to schedule a meeting or event
 - "send_email": User wants to send an email
+- "web_search": User wants to search the internet, get current information, news, weather, real-time data, or any information that requires internet search
 - "general_chat": General conversation, greeting, or unclear intent
+
+IMPORTANT: Choose "web_search" for:
+- News, current events, today's information
+- Weather, climate, temperature
+- Latest updates, recent happenings
+- Prices, stocks, cryptocurrency
+- Sports scores, results
+- Any question starting with "what is", "tell me about", "search for"
+- Questions about current/recent events
+- "Notícias", "novidades", "últimas"
+
+Examples:
+- "me fale a principal notícia de hoje" -> web_search (news, today)
+- "notícias sobre IA" -> web_search (news)
+- "qual o clima em SP?" -> web_search (weather)
+- "o que é Python?" -> web_search (requires search)
+- "agende reunião" -> schedule_meeting
+- "envie email" -> send_email
+- "oi, tudo bem?" -> general_chat
 
 Respond with ONLY the intent name, nothing else."""
         

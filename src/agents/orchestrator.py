@@ -10,6 +10,7 @@ from src.agents.calendar_agent import CalendarAgent
 from src.agents.email_agent import EmailAgent
 from src.agents.general_chat_agent import GeneralChatAgent
 from src.agents.summary_agent import SummaryAgent
+from src.agents.web_search_agent import WebSearchAgent
 from src.config import settings
 import structlog
 import os
@@ -28,6 +29,7 @@ class ChatbotOrchestrator:
         self.email_agent = EmailAgent()
         self.general_chat_agent = GeneralChatAgent()
         self.summary_agent = SummaryAgent()
+        self.web_search_agent = WebSearchAgent()
         
         # Ensure data directory exists
         os.makedirs("./data", exist_ok=True)
@@ -51,10 +53,11 @@ class ChatbotOrchestrator:
         workflow.add_node("knowledge", self.knowledge_agent.process)
         workflow.add_node("calendar", self.calendar_agent.process)
         workflow.add_node("email", self.email_agent.process)
+        workflow.add_node("web_search", self.web_search_agent.process)
         workflow.add_node("general_chat", self.general_chat_agent.process)
         
         # Define routing logic
-        def route_by_intent(state: AgentState) -> Literal["knowledge", "calendar", "email", "general_chat"]:
+        def route_by_intent(state: AgentState) -> Literal["knowledge", "calendar", "email", "web_search", "general_chat"]:
             """Route to appropriate agent based on intent."""
             intent = state.get("intent", "general_chat")
             
@@ -64,6 +67,8 @@ class ChatbotOrchestrator:
                 return "calendar"
             elif intent == "send_email":
                 return "email"
+            elif intent == "web_search":
+                return "web_search"
             else:
                 return "general_chat"
         
@@ -78,6 +83,7 @@ class ChatbotOrchestrator:
                 "knowledge": "knowledge",
                 "calendar": "calendar",
                 "email": "email",
+                "web_search": "web_search",
                 "general_chat": "general_chat",
             }
         )
@@ -86,6 +92,7 @@ class ChatbotOrchestrator:
         workflow.add_edge("knowledge", END)
         workflow.add_edge("calendar", END)
         workflow.add_edge("email", END)
+        workflow.add_edge("web_search", END)
         workflow.add_edge("general_chat", END)
         
         # Compile with memory checkpointer
