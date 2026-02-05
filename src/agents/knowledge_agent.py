@@ -44,9 +44,38 @@ class KnowledgeAgent:
         
         results = search_result.get("results", [])
         
+        # Check if results contain relevant information
+        has_relevant_info = False
+        if results:
+            # Quick check: if all results are just generic system/welcome messages, consider as no results
+            generic_phrases = [
+                "chatbot genérico", "sistema de base de conhecimento inicializado", 
+                "adicionar seus próprios arquivos", "arquivos suportados",
+                "bem-vindo ao chatbot", "este é um chatbot genérico",
+                "funcionalidades", "como usar", "personalização",
+                "você pode fazer perguntas", "o chatbot usa inteligência"
+            ]
+            
+            # Check if results have actual specific information
+            relevant_results = []
+            for r in results:
+                r_lower = r.lower()
+                # If result is mostly generic phrases, skip it
+                generic_count = sum(1 for phrase in generic_phrases if phrase in r_lower)
+                # If more than 20% of the text is generic OR it's very short with generic content
+                if generic_count == 0 or (len(r) > 100 and generic_count < 2):
+                    relevant_results.append(r)
+            
+            if relevant_results:
+                has_relevant_info = True
+                results = relevant_results  # Use only relevant results
+            else:
+                results = []  # Treat generic messages as no results
+                logger.debug("Filtered out generic knowledge base content")
+        
         if not results:
-            # NO KNOWLEDGE FOUND → Try web search as fallback
-            logger.info("No knowledge base results, trying web search fallback", query=last_message)
+            # NO RELEVANT KNOWLEDGE FOUND → Try web search as fallback
+            logger.info("No relevant knowledge base results, trying web search fallback", query=last_message)
             
             web_result = web_search(last_message, max_results=3)
             

@@ -28,22 +28,23 @@ def search_knowledge_base(query: str, max_results: int = 3) -> dict:
         Dictionary with status and search results
     """
     try:
-        # Temporarily skip ChromaDB due to compatibility issues
-        # Web search fallback will handle all queries
-        logger.debug("Skipping ChromaDB (compatibility issue), web fallback active")
+        kb_service = get_kb_service()
+        results = kb_service.search(query, k=max_results)
+        
+        logger.info("Knowledge base search completed", query=query, num_results=len(results))
+        
+        if not results:
+            return {
+                "status": "success",
+                "message": "No relevant information found in knowledge base",
+                "results": []
+            }
+        
         return {
             "status": "success",
-            "message": "Using web search fallback",
-            "results": []
+            "results": results,
+            "message": f"Found {len(results)} relevant document(s)"
         }
-        
-        # Original code disabled until langchain-chroma is updated
-        # kb_service = get_kb_service()
-        # results = kb_service.search(query, k=max_results)
-        # logger.info("Knowledge base search completed", query=query, num_results=len(results))
-        # if not results:
-        #     return {"status": "success", "message": "No relevant information found", "results": []}
-        # return {"status": "success", "results": results, "message": f"Found {len(results)} document(s)"}
         
     except Exception as e:
         logger.error("Error searching knowledge base", error=str(e), query=query)
