@@ -46,41 +46,38 @@ Available intents:
 - "schedule_meeting": User wants to schedule a meeting or event, list calendar, cancel/edit meetings
 - "send_email": User wants to send, read, or search emails
 - "task_management": User wants to manage tasks (TODO list): create, list, complete, delete tasks
-- "web_search": User wants to search the internet, get current information, news, weather, real-time data, or any information that requires internet search
+- "automation": User wants automation (reminders, daily summary, "lembrar de", "resumo")
+- "web_search": User wants to search the internet, get current information, news, weather, real-time data
 - "general_chat": General conversation, greeting, or unclear intent
 
+IMPORTANT: Choose "automation" for:
+- "lembrar de X" (remember to do X)
+- "não esquecer de X" (don't forget X)
+- "resumo do dia", "summary", "resumir"
+- Quick reminders without formal task creation
+- "preciso fazer X" (I need to do X) - casual tone
+
 IMPORTANT: Choose "task_management" for:
-- Creating tasks, TODO items, reminders
-- Listing tasks, seeing what's pending
-- Completing tasks, marking as done
-- Deleting tasks, removing from list
-- Task deadlines, priorities
-- "criar tarefa", "adicionar no TODO", "listar tarefas"
+- Explicit task commands: "criar tarefa", "adicionar no TODO", "listar tarefas"
 - "completar tarefa", "marcar como feita"
 - "deletar tarefa", "remover"
+- Formal task management
 
 IMPORTANT: Choose "web_search" for:
 - News, current events, today's information
 - Weather, climate, temperature
 - Latest updates, recent happenings
-- Prices, stocks, cryptocurrency
-- Sports scores, results
-- Any question starting with "what is", "tell me about", "search for"
-- Questions about current/recent events
 - "Notícias", "novidades", "últimas"
 
 Examples:
-- "criar tarefa comprar leite" -> task_management
+- "lembrar de comprar café" -> automation (quick reminder)
+- "não esquecer de ligar pro João" -> automation
+- "resumo do dia" -> automation
+- "criar tarefa comprar leite" -> task_management (formal)
 - "listar minhas tarefas" -> task_management
-- "completar tarefa de estudar" -> task_management
-- "me fale a principal notícia de hoje" -> web_search (news, today)
-- "notícias sobre IA" -> web_search (news)
-- "qual o clima em SP?" -> web_search (weather)
-- "o que é Python?" -> web_search (requires search)
+- "me fale a principal notícia de hoje" -> web_search
 - "agende reunião" -> schedule_meeting
-- "liste meus eventos" -> schedule_meeting
 - "envie email" -> send_email
-- "ler meus emails" -> send_email
 - "oi, tudo bem?" -> general_chat
 
 Respond with ONLY the intent name, nothing else."""
