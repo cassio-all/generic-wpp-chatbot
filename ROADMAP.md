@@ -66,18 +66,20 @@
 **Prioridade:** Média  
 **Complexidade:** Média
 
-- [ ] Ler emails recebidos
+- [x] Enviar emails
+- [x] Múltiplos destinatários (CC, BCC)
+- [x] Ler emails recebidos (últimos N)
+- [x] Buscar emails por remetente/assunto
 - [ ] Responder emails existentes
 - [ ] Anexar arquivos
-- [ ] Múltiplos destinatários (CC, BCC)
 - [ ] Templates de email
 - [ ] Assinaturas customizadas
 - [ ] Email threading (conversas)
-- [ ] Buscar emails (filtros, datas, remetentes)
+- [ ] Filtros avançados (por data, não lidos)
 
-**Arquivos envolvidos:**
-- `src/agents/email_agent.py`
-- `src/tools/email_tool.py`
+**Arquivos implementados:**
+- `src/agents/email_agent.py` ✅ (expandido)
+- `src/tools/email_tool.py` ✅ (IMAP + SMTP)
 
 ---
 
