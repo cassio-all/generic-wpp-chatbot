@@ -29,15 +29,23 @@ Um chatbot inteligente para WhatsApp com arquitetura multi-agente modular, basea
 - **Atualização Dinâmica**: Hot reload da base de conhecimento sem reiniciar o sistema
 - **Multi-documento**: Suporte para múltiplos arquivos de conhecimento organizados por domínio
 
+### 🔗 Agent Integration & Automation ⭐ NEW
+- **Cross-Agent Workflows**: Tarefas urgentes automaticamente criam eventos no calendário
+- **Quick Reminders**: "lembrar de X" cria tarefas instantaneamente via Automation Agent
+- **Daily Summaries**: Agregação automática de tarefas pendentes, atrasadas e próximas
+- **Smart Detection**: Diferencia linguagem casual vs formal para roteamento inteligente
+
 ### ⚡ Automação com Kestra
 - **Workflows Declarativos**: Processamento assíncrono de mensagens com retry automático
 - **Scheduled Tasks**: Atualização automática de conhecimento e relatórios periódicos
 - **Monitoramento Visual**: Interface web para acompanhar execuções e logs em tempo real
 
 ### 🔌 Integrações Prontas para Uso
+- **WhatsApp Web** ⭐ NEW: Conexão via whatsapp-web.js com QR Code, múltiplas conversas simultâneas
 - **Google Calendar API**: Agendamento inteligente com parsing de data/hora natural
-- **SendGrid**: Envio transacional de emails com templates e tracking
-- **WhatsApp Web**: Conexão via whatsapp-web.py com suporte a QR Code
+- **Gmail API**: Envio/leitura de emails com busca avançada e validação
+- **Web Search**: DuckDuckGo para buscas gerais e notícias
+- **Task Management**: Sistema TODO com prioridades, deadlines e SQLite persistence
 
 ### 🐳 Deploy Simplificado
 - **Docker Compose**: Stack completa (app + Kestra + PostgreSQL) com um comando
@@ -58,16 +66,16 @@ O sistema utiliza **LangGraph** para criar um grafo de estados com múltiplos ag
 │  Router Agent   │ ◄─── Analisa intenção usando embeddings semânticos
 └────────┬────────┘      Modelos: GPT-4o-mini
          │
-         ├──────────────────┬──────────────────┬──────────────────┬─────────────────┐
-         ▼                  ▼                  ▼                  ▼                 ▼
-┌──────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
-│  Knowledge   │   │   Calendar   │   │    Email     │   │ General Chat │   │   (Custom)   │
-│    Agent     │   │    Agent     │   │    Agent     │   │    Agent     │   │    Agent     │
-└──────────────┘   └──────────────┘   └──────────────┘   └──────────────┘   └──────────────┘
-      │                    │                    │                  │
-      ▼                    ▼                    ▼                  ▼
-  ChromaDB          Google Calendar       SendGrid API       OpenAI Chat
-  (RAG Search)      (Events CRUD)        (Transactional)    (Conversational)
+         ├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┐
+         ▼          ▼          ▼          ▼          ▼          ▼          ▼          ▼
+    ┌──────┐   ┌──────┐   ┌──────┐   ┌──────┐   ┌──────┐   ┌──────┐   ┌──────┐   ┌──────┐
+    │Know- │   │Calen-│   │Email │   │ Task │   │ Web  │   │Auto- │   │ Chat │   │Summa-│
+    │ledge │   │ dar  │   │      │   │      │   │Search│   │mation│   │      │   │ ry   │
+    └───┬──┘   └───┬──┘   └───┬──┘   └───┬──┘   └───┬──┘   └───┬──┘   └───┬──┘   └───┬──┘
+        │          │          │          │          │          │          │          │
+        ▼          ▼          ▼          ▼          ▼          ▼          ▼          ▼
+    ChromaDB   GCalendar   Gmail    tasks.db    DuckGo   Integration OpenAI  Summarizer
+    (RAG)      (Events)    (IMAP)   (SQLite)   (Search)   Module    (Chat)  (Context)
 ```
 
 ### Agentes Disponíveis
@@ -145,11 +153,11 @@ O sistema utiliza **LangGraph** para criar um grafo de estados com múltiplos ag
 | Requisito | Versão Mínima | Obrigatório? | Nota |
 |-----------|---------------|--------------|------|
 | Python | 3.11+ | ✅ Sim | Use `python3.11` ou superior |
+| Node.js | 18+ | ✅ Sim | Para integração WhatsApp |
 | pip | Latest | ✅ Sim | Para instalar dependências |
 | Docker | 20.x+ | ⚠️ Recomendado | Para deploy com Kestra |
 | Docker Compose | 2.x+ | ⚠️ Recomendado | Para stack completa |
 | OpenAI API Key | - | ✅ Sim | [Obter aqui](https://platform.openai.com/api-keys) |
-| SendGrid API Key | - | ❌ Opcional | Apenas para funcionalidade de email |
 | Google Cloud Project | - | ❌ Opcional | Apenas para Google Calendar |
 
 ### ⚡ Setup Rápido (5 minutos)
@@ -748,9 +756,62 @@ triggers:
 
 ## 📱 Usando o Chatbot
 
+### � WhatsApp (Recomendado)
+
+Conecte o chatbot ao WhatsApp para usar todos os 8 agentes pelo celular:
+
+```bash
+# Inicie a integração WhatsApp
+./start_whatsapp.sh
+
+# Ou manualmente:
+cd src/integrations/whatsapp && npm install && cd ../../..
+./start_whatsapp.sh
+```
+
+**Primeira vez:**
+1. QR code será exibido no terminal
+2. Abra WhatsApp no celular → **Dispositivos conectados**
+3. Escaneie o QR code
+4. ✅ Pronto! Envie mensagens e o bot responderá automaticamente
+
+**Recursos WhatsApp:**
+- ✅ Mensagens em tempo real
+- ✅ Status de digitação ("digitando...")
+- ✅ Múltiplas conversas simultâneas
+- ✅ Memória persistente por contato
+- ✅ Suporte a grupos (opcional)
+
+📖 **Guia completo:** [docs/WHATSAPP_SETUP.md](docs/WHATSAPP_SETUP.md)
+
+---
+
+### 🌐 Interface Web
+
+Para usar via navegador com interface moderna:
+
+```bash
+# Inicie o servidor web
+./run_web.sh
+
+# Ou manualmente:
+source venv/bin/activate
+python run_web.py
+```
+
+Acesse: **http://localhost:8000**
+
+**Recursos Web:**
+- 🎨 Interface com gradiente roxo animado
+- ⚡ Chat em tempo real via WebSocket
+- 📊 Indicadores de digitação e status
+- 💬 Scroll automático e responsivo
+
+---
+
 ### 🖥️ Modo CLI (Desenvolvimento e Testes)
 
-Ideal para testar localmente sem conectar ao WhatsApp:
+Ideal para testar localmente sem interface:
 
 ```bash
 # Ative o ambiente virtual

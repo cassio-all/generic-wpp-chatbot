@@ -60,21 +60,33 @@
 
 ## 📋 Backlog de Funcionalidades
 
-### 1. 📱 Integração WhatsApp Real
+### 1. 📱 Integração WhatsApp ✅ **IMPLEMENTADO**
 **Prioridade:** Alta  
 **Complexidade:** Média
 
-- [ ] Integrar com WhatsApp Web (whatsapp-web.js)
-- [ ] Gerenciar múltiplas sessões
-- [ ] QR Code para autenticação
-- [ ] Suporte a mensagens de voz
-- [ ] Suporte a imagens/arquivos
-- [ ] Status de leitura e digitação
-- [ ] Grupos do WhatsApp
+- [x] Integrar com WhatsApp Web (whatsapp-web.js)
+- [x] QR Code para autenticação
+- [x] Gerenciar múltiplas sessões/conversas simultâneas
+- [x] Status de digitação ("digitando...")
+- [x] WebSocket Bridge (Node.js ↔ Python)
+- [x] Persistência de sessão (não precisa re-escanear QR)
+- [x] Memória de conversas por contato
+- [x] Script de inicialização automática
+- [x] Documentação completa
+- [ ] Suporte a mensagens de voz (futuro)
+- [ ] Suporte a imagens/arquivos (futuro)
+- [ ] Status de leitura (futuro)
+- [ ] Grupos do WhatsApp (futuro)
 
-**Arquivos envolvidos:**
-- `src/integrations/whatsapp_integration.py` (criar)
-- `src/main.py` (adaptar)
+**Status:** ✅ Funcional e testado
+
+**Arquivos implementados:**
+- `src/integrations/whatsapp_integration.py` ✅
+- `src/integrations/whatsapp/server.js` ✅ (Node.js bridge)
+- `src/integrations/whatsapp/package.json` ✅
+- `run_whatsapp.py` ✅
+- `start_whatsapp.sh` ✅ (script de inicialização)
+- `docs/WHATSAPP_SETUP.md` ✅ (guia completo)
 
 ---
 
