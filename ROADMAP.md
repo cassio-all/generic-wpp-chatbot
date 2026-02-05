@@ -194,14 +194,18 @@
 **Prioridade:** Alta  
 **Complexidade:** Alta
 
-- [ ] API REST com FastAPI
-  - [ ] Endpoints para enviar mensagens
-  - [ ] Websockets para chat em tempo real
+- [x] API REST com FastAPI
+  - [x] Endpoints para enviar mensagens
+  - [x] Websockets para chat em tempo real
   - [ ] Autenticação JWT
   - [ ] Gerenciamento de usuários
-- [ ] Frontend React/Vue
-  - [ ] Chat interface
-  - [ ] Histórico de conversas
+- [x] Frontend HTML/CSS/JS
+  - [x] Chat interface moderna
+  - [x] WebSocket em tempo real
+  - [x] Indicador de digitação
+  - [x] Status online/offline
+  - [x] Design responsivo e animado
+  - [ ] Histórico de conversas (UI)
   - [ ] Dashboard de métricas
   - [ ] Configurações
 - [ ] Deploy
@@ -209,11 +213,11 @@
   - [ ] Nginx reverse proxy
   - [ ] SSL/HTTPS
 
-**Arquivos a criar:**
-- `src/api/` (novo diretório)
-- `frontend/` (novo diretório)
-- `docker-compose.yml`
-- `Dockerfile`
+**Arquivos implementados:**
+- `src/api/main.py` ✅
+- `src/api/static/index.html` ✅
+- `run_web.py` ✅
+- Servidor rodando em http://localhost:8000
 
 ---
 
