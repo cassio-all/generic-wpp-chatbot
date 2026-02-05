@@ -1,5 +1,5 @@
 """Tools package for the chatbot."""
-from .email_tool import send_email
+from .email_tool import send_email, read_emails, search_emails
 from .calendar_tool import (
     schedule_meeting,
     list_upcoming_events,
@@ -9,9 +9,12 @@ from .calendar_tool import (
     update_meeting
 )
 from .knowledge_tool import search_knowledge_base
+from .web_search_tool import web_search, search_news
 
 __all__ = [
     "send_email",
+    "read_emails",
+    "search_emails",
     "schedule_meeting",
     "list_upcoming_events",
     "check_conflicts",
@@ -19,4 +22,6 @@ __all__ = [
     "cancel_meeting",
     "update_meeting",
     "search_knowledge_base",
+    "web_search",
+    "search_news",
 ]
