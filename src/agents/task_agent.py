@@ -3,6 +3,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from src.config import settings
 from src.agents.state import AgentState
+from src.agents.integration import AgentIntegration
 from src.tools import (
     create_task,
     list_tasks,
@@ -29,6 +30,7 @@ class TaskAgent:
             temperature=0,
             openai_api_key=settings.openai_api_key
         )
+        self.integration = AgentIntegration()
     
     def _detect_action(self, message: str) -> str:
         """Detect what task action the user wants.
@@ -129,15 +131,15 @@ Retorne apenas o JSON."""
                 state["messages"] = state["messages"] + [AIMessage(content=response_text)]
                 return state
             
-            # Create task
-            result = create_task(
+            # Use smart creation with auto-calendar integration
+            result = self.integration.smart_create_task_with_calendar(
                 title=task_info.get("title"),
                 description=task_info.get("description"),
                 priority=task_info.get("priority", "medium"),
                 deadline=task_info.get("deadline")
             )
             
-            if result["status"] == "success":
+            if result["task"]:
                 task = result["task"]
                 priority_emoji = {
                     "urgent": "🔴",
@@ -156,6 +158,11 @@ Retorne apenas o JSON."""
                 
                 if task.get("deadline"):
                     response_text += f"⏰ Prazo: {task['deadline']}\n"
+                
+                # Notify if calendar event was auto-created
+                if result.get("auto_calendar"):
+                    response_text += f"\n🔔 **Evento criado no calendário automaticamente!**\n"
+                    response_text += f"Você receberá um lembrete 30 minutos antes do prazo."
             else:
                 response_text = f"❌ Erro ao criar tarefa: {result.get('message')}"
             

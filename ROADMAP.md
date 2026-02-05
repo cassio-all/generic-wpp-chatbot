@@ -36,6 +36,19 @@
   - [x] Ver tarefas com deadline próximo
   - [x] Persistência em SQLite
   - [x] Detecção de ação (create/list/complete/delete/deadlines)
+- [x] **Agent Integration & Automation** 🆕
+  - [x] Módulo de integração cross-agent (`src/agents/integration.py`)
+  - [x] Auto-criação de eventos no calendário (tarefas urgentes + prazo)
+  - [x] Lembretes rápidos via "lembrar de X"
+  - [x] Resumo diário de tarefas (pendentes/atrasadas/próximas)
+  - [x] Detecção inteligente de intenção (casual vs formal)
+  - [x] Automation Agent para workflows automáticos
+- [x] **Web Interface** 🆕
+  - [x] FastAPI backend com REST + WebSocket
+  - [x] Interface HTML/CSS/JS moderna (gradiente roxo)
+  - [x] Chat em tempo real via WebSocket
+  - [x] Indicadores de digitação e status
+  - [x] Servidor rodando em http://localhost:8000
 - [x] Base de Conhecimento (RAG)
   - [x] ChromaDB para vetores
   - [x] Embedding de documentos
@@ -190,34 +203,39 @@
 
 ---
 
-### 4. 🌐 Interface Web (FastAPI + Frontend)
+### 4. 🌐 Interface Web (FastAPI + Frontend) ✅ **IMPLEMENTADO**
 **Prioridade:** Alta  
 **Complexidade:** Alta
 
 - [x] API REST com FastAPI
   - [x] Endpoints para enviar mensagens
   - [x] Websockets para chat em tempo real
-  - [ ] Autenticação JWT
-  - [ ] Gerenciamento de usuários
+  - [x] Health check endpoint
+  - [ ] Autenticação JWT (futuro)
+  - [ ] Gerenciamento de usuários (futuro)
 - [x] Frontend HTML/CSS/JS
-  - [x] Chat interface moderna
+  - [x] Chat interface moderna (gradiente roxo)
   - [x] WebSocket em tempo real
   - [x] Indicador de digitação
   - [x] Status online/offline
   - [x] Design responsivo e animado
-  - [ ] Histórico de conversas (UI)
-  - [ ] Dashboard de métricas
-  - [ ] Configurações
-- [ ] Deploy
+  - [x] Scroll automático
+  - [ ] Histórico de conversas (UI) (futuro)
+  - [ ] Dashboard de métricas (futuro)
+  - [ ] Configurações (futuro)
+- [ ] Deploy (futuro)
   - [ ] Docker + docker-compose
   - [ ] Nginx reverse proxy
   - [ ] SSL/HTTPS
 
+**Status:** ✅ Testado e funcionando em http://localhost:8000
+
 **Arquivos implementados:**
-- `src/api/main.py` ✅
-- `src/api/static/index.html` ✅
-- `run_web.py` ✅
-- Servidor rodando em http://localhost:8000
+- `src/api/__init__.py` ✅
+- `src/api/main.py` ✅ (FastAPI + WebSocket)
+- `src/api/static/index.html` ✅ (frontend completo)
+- `run_web.py` ✅ (startup script)
+- `requirements.txt` ✅ (atualizado com fastapi, uvicorn, websockets)
 
 ---
 
@@ -225,16 +243,29 @@
 **Prioridade:** Média  
 **Complexidade:** Alta
 
-- [ ] Workflow engine
-- [ ] Triggers automáticos (cron jobs)
-- [ ] Workflows multi-step
+- [x] **Agent Integration (básico)** ✅
+  - [x] Task → Calendar (tarefas urgentes auto-criam eventos)
+  - [x] Lembretes rápidos ("lembrar de X")
+  - [x] Resumo diário de tarefas
+  - [x] Automation Agent
+- [ ] **Workflows Avançados** (próximas etapas)
+  - [ ] Email importante → criar follow-up task
+  - [ ] Web search + flag "salvar" → adicionar à knowledge base
+  - [ ] Integração Task ↔ Email (notificar prazo)
+  - [ ] Workflow engine com triggers cron
+  - [ ] Multi-step workflows customizáveis
   - [ ] Ex: "Toda segunda às 9h, buscar emails, resumir e enviar relatório"
-- [ ] Integração com Kestra/n8n/Zapier
-- [ ] Conditional logic avançada
-- [ ] Error handling e retries
+  - [ ] Integração com Kestra/n8n/Zapier
+  - [ ] Conditional logic avançada
+  - [ ] Error handling e retries
+
+**Arquivos implementados:**
+- `src/agents/integration.py` ✅ (módulo base)
+- `src/agents/automation_agent.py` ✅
+- `tests/test_integrations.py` ✅
 
 **Arquivos a criar:**
-- `src/workflows/` (novo diretório)
+- `src/workflows/` (workflow engine futuro)
 - `src/workflows/engine.py`
 - `src/workflows/triggers.py`
 
