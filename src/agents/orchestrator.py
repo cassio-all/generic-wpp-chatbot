@@ -8,6 +8,7 @@ from src.agents.router_agent import RouterAgent
 from src.agents.knowledge_agent import KnowledgeAgent
 from src.agents.calendar_agent import CalendarAgent
 from src.agents.email_agent import EmailAgent
+from src.agents.task_agent import TaskAgent
 from src.agents.general_chat_agent import GeneralChatAgent
 from src.agents.summary_agent import SummaryAgent
 from src.agents.web_search_agent import WebSearchAgent
@@ -27,6 +28,7 @@ class ChatbotOrchestrator:
         self.knowledge_agent = KnowledgeAgent()
         self.calendar_agent = CalendarAgent()
         self.email_agent = EmailAgent()
+        self.task_agent = TaskAgent()
         self.general_chat_agent = GeneralChatAgent()
         self.summary_agent = SummaryAgent()
         self.web_search_agent = WebSearchAgent()
@@ -53,11 +55,12 @@ class ChatbotOrchestrator:
         workflow.add_node("knowledge", self.knowledge_agent.process)
         workflow.add_node("calendar", self.calendar_agent.process)
         workflow.add_node("email", self.email_agent.process)
+        workflow.add_node("task", self.task_agent.process)
         workflow.add_node("web_search", self.web_search_agent.process)
         workflow.add_node("general_chat", self.general_chat_agent.process)
         
         # Define routing logic
-        def route_by_intent(state: AgentState) -> Literal["knowledge", "calendar", "email", "web_search", "general_chat"]:
+        def route_by_intent(state: AgentState) -> Literal["knowledge", "calendar", "email", "task", "web_search", "general_chat"]:
             """Route to appropriate agent based on intent."""
             intent = state.get("intent", "general_chat")
             
@@ -67,6 +70,8 @@ class ChatbotOrchestrator:
                 return "calendar"
             elif intent == "send_email":
                 return "email"
+            elif intent == "task_management":
+                return "task"
             elif intent == "web_search":
                 return "web_search"
             else:
@@ -83,6 +88,7 @@ class ChatbotOrchestrator:
                 "knowledge": "knowledge",
                 "calendar": "calendar",
                 "email": "email",
+                "task": "task",
                 "web_search": "web_search",
                 "general_chat": "general_chat",
             }
@@ -92,6 +98,7 @@ class ChatbotOrchestrator:
         workflow.add_edge("knowledge", END)
         workflow.add_edge("calendar", END)
         workflow.add_edge("email", END)
+        workflow.add_edge("task", END)
         workflow.add_edge("web_search", END)
         workflow.add_edge("general_chat", END)
         

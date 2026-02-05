@@ -28,6 +28,14 @@
   - [x] Busca de notícias
   - [x] Formatação adaptativa baseada em intenção do usuário
   - [x] Inclusão de fontes nos resultados
+- [x] Task Management Agent (TODO List)
+  - [x] Criar tarefas com título, descrição, prioridade, deadline
+  - [x] Listar tarefas (todas, pendentes, concluídas, por prioridade)
+  - [x] Completar tarefas
+  - [x] Deletar tarefas
+  - [x] Ver tarefas com deadline próximo
+  - [x] Persistência em SQLite
+  - [x] Detecção de ação (create/list/complete/delete/deadlines)
 - [x] Base de Conhecimento (RAG)
   - [x] ChromaDB para vetores
   - [x] Embedding de documentos
@@ -135,16 +143,21 @@
 **Prioridade:** Média  
 **Complexidade:** Média
 
-- [ ] Criar tarefas (TODO list)
-- [ ] Marcar como concluído
-- [ ] Prioridades
-- [ ] Deadlines
+- [x] Criar tarefas (TODO list)
+- [x] Listar tarefas (todas/pendentes/concluídas)
+- [x] Marcar como concluído
+- [x] Prioridades (low/medium/high/urgent)
+- [x] Deadlines
+- [x] Deletar tarefas
+- [ ] Editar tarefas existentes
 - [ ] Integração com Todoist/Notion
 - [ ] Lembretes automáticos
+- [ ] Subtarefas / checklists
 
-**Arquivos a criar:**
-- `src/agents/task_agent.py`
-- `src/tools/task_tool.py`
+**Arquivos implementados:**
+- `src/agents/task_agent.py` ✅
+- `src/tools/task_tool.py` ✅
+- `data/tasks.db` (SQLite) ✅
 
 #### 3.4 Code Assistant Agent
 **Prioridade:** Baixa  
