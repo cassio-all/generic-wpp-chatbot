@@ -11,10 +11,23 @@
   - [x] 5 opções de resolução de conflitos
   - [x] Timezone correto (America/Sao_Paulo)
   - [x] Sugestão de horários alternativos
-- [x] Email Integration (Gmail SMTP)
+  - [x] Listar eventos (hoje/semana/mês/todos)
+  - [x] Cancelar eventos por nome/identificação
+  - [x] Editar horário de eventos existentes
+  - [x] Detecção de ação (schedule/list/cancel/edit)
+- [x] Email Integration (Gmail SMTP + IMAP)
   - [x] Envio de emails
   - [x] Validação de endereços
   - [x] Suporte HTML
+  - [x] CC/BCC support
+  - [x] Leitura de emails recentes
+  - [x] Busca de emails por assunto/remetente
+  - [x] Detecção de ação (send/read/search)
+- [x] Web Search Agent (DuckDuckGo)
+  - [x] Busca geral na web
+  - [x] Busca de notícias
+  - [x] Formatação adaptativa baseada em intenção do usuário
+  - [x] Inclusão de fontes nos resultados
 - [x] Base de Conhecimento (RAG)
   - [x] ChromaDB para vetores
   - [x] Embedding de documentos
@@ -50,17 +63,19 @@
 **Prioridade:** Média  
 **Complexidade:** Baixa
 
-- [ ] Cancelamento de reuniões existentes
-- [ ] Listar reuniões do dia/semana
-- [ ] Editar reuniões (mudar hora, descrição, participantes)
-- [ ] Adicionar participantes/convidados
+- [x] Cancelamento de reuniões existentes
+- [x] Listar reuniões do dia/semana
+- [x] Editar reuniões (mudar hora)
+- [ ] Adicionar participantes/convidados a eventos existentes
+- [ ] Editar descrição de eventos
 - [ ] Enviar lembretes customizados
 - [ ] Integrar com múltiplas agendas
 - [ ] Reuniões recorrentes
+- [ ] Ver detalhes completos de um evento
 
 **Arquivos envolvidos:**
-- `src/agents/calendar_agent.py`
-- `src/tools/calendar_tool.py`
+- `src/agents/calendar_agent.py` ✅ (expandido com list/cancel/edit)
+- `src/tools/calendar_tool.py` ✅ (add list_upcoming_events melhorado, get_event_details, add_attendees_to_event)
 
 #### 2.2 Email Agent Avançado
 **Prioridade:** Média  
@@ -75,7 +90,7 @@
 - [ ] Templates de email
 - [ ] Assinaturas customizadas
 - [ ] Email threading (conversas)
-- [ ] Filtros avançados (por data, não lidos)
+- [ ] Filtros avançados (por data, não lidos) ✅ parcial
 
 **Arquivos implementados:**
 - `src/agents/email_agent.py` ✅ (expandido)
