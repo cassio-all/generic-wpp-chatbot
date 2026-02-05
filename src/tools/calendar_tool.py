@@ -420,11 +420,12 @@ def update_meeting(event_id: str, new_start_time: str, duration_minutes: int) ->
         return {"status": "error", "message": str(e)}
 
 
-def list_upcoming_events(max_results: int = 10) -> dict:
+def list_upcoming_events(max_results: int = 10, days_ahead: Optional[int] = None) -> dict:
     """List upcoming events from Google Calendar.
     
     Args:
         max_results: Maximum number of events to return
+        days_ahead: Limit to events within N days (None = all future)
         
     Returns:
         Dictionary with status and list of events
@@ -440,30 +441,46 @@ def list_upcoming_events(max_results: int = 10) -> dict:
         
         now = datetime.datetime.utcnow().isoformat() + 'Z'
         
-        events_result = service.events().list(
-            calendarId='primary',
-            timeMin=now,
-            maxResults=max_results,
-            singleEvents=True,
-            orderBy='startTime'
-        ).execute()
+        # Set time max if days_ahead is specified
+        time_max = None
+        if days_ahead:
+            max_date = datetime.datetime.utcnow() + datetime.timedelta(days=days_ahead)
+            time_max = max_date.isoformat() + 'Z'
+        
+        params = {
+            'calendarId': 'primary',
+            'timeMin': now,
+            'maxResults': max_results,
+            'singleEvents': True,
+            'orderBy': 'startTime'
+        }
+        
+        if time_max:
+            params['timeMax'] = time_max
+        
+        events_result = service.events().list(**params).execute()
         
         events = events_result.get('items', [])
         
         event_list = []
         for event in events:
             start = event['start'].get('dateTime', event['start'].get('date'))
+            end = event['end'].get('dateTime', event['end'].get('date'))
             event_list.append({
+                'id': event.get('id'),
                 'summary': event.get('summary'),
+                'description': event.get('description', ''),
                 'start': start,
-                'id': event.get('id')
+                'end': end,
+                'attendees': event.get('attendees', [])
             })
         
         logger.info("Retrieved upcoming events", count=len(event_list))
         
         return {
             "status": "success",
-            "events": event_list
+            "events": event_list,
+            "count": len(event_list)
         }
         
     except Exception as e:
@@ -471,4 +488,108 @@ def list_upcoming_events(max_results: int = 10) -> dict:
         return {
             "status": "error",
             "message": f"Failed to list events: {str(e)}"
+        }
+
+
+def get_event_details(event_id: str) -> dict:
+    """Get detailed information about a specific event.
+    
+    Args:
+        event_id: The ID of the event
+        
+    Returns:
+        Dictionary with event details
+    """
+    try:
+        service = get_calendar_service()
+        
+        if not service:
+            return {
+                "status": "error",
+                "message": "Google Calendar not configured"
+            }
+        
+        event = service.events().get(
+            calendarId='primary',
+            eventId=event_id
+        ).execute()
+        
+        return {
+            "status": "success",
+            "event": {
+                'id': event.get('id'),
+                'summary': event.get('summary'),
+                'description': event.get('description', ''),
+                'start': event['start'].get('dateTime', event['start'].get('date')),
+                'end': event['end'].get('dateTime', event['end'].get('date')),
+                'attendees': event.get('attendees', []),
+                'location': event.get('location', '')
+            }
+        }
+    
+    except Exception as e:
+        logger.error("Error getting event details", error=str(e))
+        return {
+            "status": "error",
+            "message": f"Failed to get event: {str(e)}"
+        }
+
+
+def add_attendees_to_event(event_id: str, attendee_emails: list) -> dict:
+    """Add attendees to an existing event.
+    
+    Args:
+        event_id: The ID of the event
+        attendee_emails: List of email addresses to add
+        
+    Returns:
+        Dictionary with status
+    """
+    try:
+        service = get_calendar_service()
+        
+        if not service:
+            return {
+                "status": "error",
+                "message": "Google Calendar not configured"
+            }
+        
+        # Get current event
+        event = service.events().get(
+            calendarId='primary',
+            eventId=event_id
+        ).execute()
+        
+        # Get existing attendees
+        current_attendees = event.get('attendees', [])
+        current_emails = {a.get('email') for a in current_attendees}
+        
+        # Add new attendees
+        for email in attendee_emails:
+            if email not in current_emails:
+                current_attendees.append({'email': email})
+        
+        # Update event
+        event['attendees'] = current_attendees
+        
+        updated_event = service.events().update(
+            calendarId='primary',
+            eventId=event_id,
+            body=event,
+            sendUpdates='all'
+        ).execute()
+        
+        logger.info("Added attendees to event", event_id=event_id, count=len(attendee_emails))
+        
+        return {
+            "status": "success",
+            "message": f"Added {len(attendee_emails)} attendee(s) to the event",
+            "event": updated_event
+        }
+    
+    except Exception as e:
+        logger.error("Error adding attendees", error=str(e))
+        return {
+            "status": "error",
+            "message": f"Failed to add attendees: {str(e)}"
         }

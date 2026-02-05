@@ -6,7 +6,17 @@ from .calendar_tool import (
     check_conflicts,
     find_available_slots,
     cancel_meeting,
-    update_meeting
+    update_meeting,
+    get_event_details,
+    add_attendees_to_event
+)
+from .task_tool import (
+    create_task,
+    list_tasks,
+    complete_task,
+    delete_task,
+    update_task,
+    get_upcoming_deadlines
 )
 from .knowledge_tool import search_knowledge_base
 from .web_search_tool import web_search, search_news
@@ -21,6 +31,14 @@ __all__ = [
     "find_available_slots",
     "cancel_meeting",
     "update_meeting",
+    "get_event_details",
+    "add_attendees_to_event",
+    "create_task",
+    "list_tasks",
+    "complete_task",
+    "delete_task",
+    "update_task",
+    "get_upcoming_deadlines",
     "search_knowledge_base",
     "web_search",
     "search_news",

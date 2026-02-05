@@ -8,7 +8,10 @@ from src.tools import (
     check_conflicts,
     find_available_slots,
     cancel_meeting,
-    update_meeting
+    update_meeting,
+    list_upcoming_events,
+    get_event_details,
+    add_attendees_to_event
 )
 import structlog
 import json
@@ -19,7 +22,7 @@ logger = structlog.get_logger()
 
 
 class CalendarAgent:
-    """Agent responsible for scheduling meetings."""
+    """Agent responsible for managing calendar events."""
     
     def __init__(self):
         """Initialize the calendar agent."""
@@ -28,6 +31,50 @@ class CalendarAgent:
             temperature=0,
             openai_api_key=settings.openai_api_key
         )
+    
+    def _detect_action(self, message: str) -> str:
+        """Detect what calendar action the user wants.
+        
+        Args:
+            message: User message
+            
+        Returns:
+            Action type: schedule, list, cancel, edit, or details
+        """
+        system_prompt = """Você é um assistente que detecta intenções relacionadas ao calendário.
+
+Analise a mensagem do usuário e retorne APENAS UMA palavra:
+- "schedule" - usuário quer AGENDAR/CRIAR uma nova reunião
+- "list" - usuário quer VER/LISTAR reuniões futuras
+- "cancel" - usuário quer CANCELAR uma reunião
+- "edit" - usuário quer EDITAR/MUDAR horário de uma reunião
+- "details" - usuário quer ver DETALHES de uma reunião específica
+- "add_attendees" - usuário quer ADICIONAR participantes a uma reunião
+
+Exemplos:
+- "agendar reunião amanhã" -> schedule
+- "listar minhas reuniões" -> list
+- "quais são meus compromissos" -> list
+- "cancelar a reunião de amanhã" -> cancel
+- "mudar reunião para 16h" -> edit
+- "adicionar joão na reunião" -> add_attendees
+- "ver detalhes da reunião" -> details
+
+Retorne apenas a palavra."""
+
+        try:
+            response = self.llm.invoke([
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=message)
+            ])
+            
+            action = response.content.strip().lower()
+            logger.info("Detected calendar action", action=action)
+            return action
+            
+        except Exception as e:
+            logger.error("Error detecting action", error=str(e))
+            return "schedule"  # Default to schedule
     
     def _handle_reschedule_time(self, state: AgentState) -> AgentState:
         """Handle rescheduling of existing meeting to new time.
@@ -341,7 +388,7 @@ Exemplo de resposta: 2026-02-03T20:00:00"""
         return state
     
     def process(self, state: AgentState) -> AgentState:
-        """Process a meeting scheduling request.
+        """Process a calendar request.
         
         Args:
             state: Current agent state
@@ -352,11 +399,48 @@ Exemplo de resposta: 2026-02-03T20:00:00"""
         messages = state["messages"]
         last_message = messages[-1].content if messages else ""
         
-        logger.info("Processing meeting scheduling request", message=last_message[:50])
+        logger.info("Processing calendar request", message=last_message[:50])
         
-        # Check if user is responding to a conflict resolution
+        # Check if user is responding to a conflict resolution or pending action
         if state.get("pending_meeting") or state.get("awaiting_reschedule_time"):
             return self._handle_conflict_resolution(state)
+        
+        # Detect action type
+        action = self._detect_action(last_message)
+        
+        logger.info("Calendar action detected", action=action)
+        
+        # Route to appropriate handler
+        if action == "list":
+            return self._list_events(state)
+        elif action == "cancel":
+            return self._cancel_event(state)
+        elif action == "edit":
+            return self._edit_event(state)
+        elif action == "schedule":
+            return self._schedule_meeting(state)
+        elif action == "details":
+            # For now, redirect to list
+            return self._list_events(state)
+        elif action == "add_attendees":
+            state["response"] = "Função de adicionar participantes ainda em desenvolvimento."
+            state["messages"] = state["messages"] + [AIMessage(content=state["response"])]
+            return state
+        else:
+            # Default to scheduling
+            return self._schedule_meeting(state)
+    
+    def _schedule_meeting(self, state: AgentState) -> AgentState:
+        """Handle scheduling a new meeting.
+        
+        Args:
+            state: Current agent state
+            
+        Returns:
+            Updated state
+        """
+        messages = state["messages"]
+        last_message = messages[-1].content if messages else ""
         
         try:
             # Use local time instead of UTC to properly handle "hoje", "amanhã"
@@ -486,5 +570,291 @@ OU se faltar info:
         except Exception as e:
             logger.error("Error processing meeting scheduling", error=str(e))
             state["response"] = "Desculpe, ocorreu um erro ao agendar a reunião. Por favor, tente novamente."
+        
+        return state    
+    def _list_events(self, state: AgentState) -> AgentState:
+        """List upcoming calendar events.
+        
+        Args:
+            state: Current agent state
+            
+        Returns:
+            Updated state
+        """
+        messages = state["messages"]
+        last_message = messages[-1].content if messages else ""
+        
+        # Detect time range (today, week, month, all)
+        system_prompt = """Analise a mensagem e determine quantos dias à frente o usuário quer ver eventos.
+
+Retorne apenas um número (dias) ou "all":
+- "hoje" -> 1
+- "esta semana" ou "semana" -> 7
+- "este mês" ou "mês" -> 30
+- "próximos eventos" ou nada específico -> all
+
+Exemplos:
+- "minhas reuniões de hoje" -> 1
+- "o que tenho esta semana" -> 7
+- "listar todos eventos" -> all"""
+
+        try:
+            response = self.llm.invoke([
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=last_message)
+            ])
+            
+            days_str = response.content.strip().lower()
+            days_ahead = None if days_str == "all" else int(days_str)
+            
+            result = list_upcoming_events(max_results=20, days_ahead=days_ahead)
+            
+            if result["status"] == "success":
+                events = result.get("events", [])
+                
+                if not events:
+                    response_text = "📅 Você não tem eventos agendados no período solicitado."
+                else:
+                    period = "hoje" if days_ahead == 1 else f"nos próximos {days_ahead} dias" if days_ahead else "futuros"
+                    response_text = f"📅 **Seus eventos {period}:**\n\n"
+                    
+                    for idx, event in enumerate(events, 1):
+                        summary = event.get('summary', 'Sem título')
+                        start = event.get('start', '')
+                        
+                        # Format date/time
+                        if 'T' in start:
+                            dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
+                            date_str = dt.strftime('%d/%m')
+                            time_str = dt.strftime('%H:%M')
+                            response_text += f"{idx}. **{summary}**\n   📆 {date_str} às {time_str}\n"
+                        else:
+                            response_text += f"{idx}. **{summary}**\n   📆 {start}\n"
+                        
+                        # Add attendees if present
+                        attendees = event.get('attendees', [])
+                        if attendees:
+                            attendee_emails = [a.get('email') for a in attendees if a.get('email')]
+                            if attendee_emails:
+                                response_text += f"   👥 {', '.join(attendee_emails[:3])}"
+                                if len(attendee_emails) > 3:
+                                    response_text += f" +{len(attendee_emails)-3} mais"
+                                response_text += "\n"
+                        
+                        response_text += "\n"
+            else:
+                response_text = f"❌ Erro ao listar eventos: {result.get('message')}"
+            
+            state["response"] = response_text
+            state["messages"] = state["messages"] + [AIMessage(content=response_text)]
+            
+            logger.info("Events listed", count=len(events) if result["status"] == "success" else 0)
+            
+        except Exception as e:
+            logger.error("Error listing events", error=str(e))
+            state["response"] = f"Erro ao listar eventos: {str(e)}"
+            state["messages"] = state["messages"] + [AIMessage(content=state["response"])]
+        
+        return state
+    
+    def _cancel_event(self, state: AgentState) -> AgentState:
+        """Cancel a calendar event.
+        
+        Args:
+            state: Current agent state
+            
+        Returns:
+            Updated state
+        """
+        messages = state["messages"]
+        last_message = messages[-1].content if messages else ""
+        
+        # First, list recent events to find which one to cancel
+        result = list_upcoming_events(max_results=10, days_ahead=7)
+        
+        if result["status"] != "success" or not result.get("events"):
+            state["response"] = "Não encontrei eventos para cancelar."
+            state["messages"] = state["messages"] + [AIMessage(content=state["response"])]
+            return state
+        
+        events = result["events"]
+        
+        # Use LLM to identify which event to cancel
+        system_prompt = f"""Você precisa identificar qual evento o usuário quer cancelar.
+
+Eventos disponíveis:
+"""
+        for idx, event in enumerate(events, 1):
+            summary = event.get('summary', 'Sem título')
+            start = event.get('start', '')
+            system_prompt += f"{idx}. {summary} - {start}\n"
+        
+        system_prompt += """
+Analise a mensagem do usuário e retorne o número do evento que ele quer cancelar (1 a """ + str(len(events)) + """).
+Se não conseguir identificar, retorne "0".
+
+Retorne apenas o número."""
+
+        try:
+            response = self.llm.invoke([
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=last_message)
+            ])
+            
+            event_number = int(response.content.strip())
+            
+            if event_number < 1 or event_number > len(events):
+                response_text = "📅 **Eventos disponíveis para cancelar:**\n\n"
+                for idx, event in enumerate(events, 1):
+                    summary = event.get('summary', 'Sem título')
+                    start = event.get('start', '')
+                    if 'T' in start:
+                        dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
+                        date_str = dt.strftime('%d/%m às %H:%M')
+                    else:
+                        date_str = start
+                    response_text += f"{idx}. **{summary}** - {date_str}\n"
+                
+                response_text += "\nQual evento você deseja cancelar? Digite o número."
+                state["response"] = response_text
+            else:
+                event_to_cancel = events[event_number - 1]
+                event_id = event_to_cancel.get('id')
+                
+                cancel_result = cancel_meeting(event_id)
+                
+                if cancel_result["status"] == "success":
+                    response_text = f"✅ Evento cancelado com sucesso!\n\n"
+                    response_text += f"❌ **{event_to_cancel.get('summary')}**"
+                else:
+                    response_text = f"❌ Erro ao cancelar: {cancel_result.get('message')}"
+                
+                state["response"] = response_text
+                logger.info("Event cancelled", event_id=event_id)
+            
+            state["messages"] = state["messages"] + [AIMessage(content=state["response"])]
+            
+        except Exception as e:
+            logger.error("Error cancelling event", error=str(e))
+            state["response"] = f"Erro ao cancelar evento: {str(e)}"
+            state["messages"] = state["messages"] + [AIMessage(content=state["response"])]
+        
+        return state
+    
+    def _edit_event(self, state: AgentState) -> AgentState:
+        """Edit an existing calendar event.
+        
+        Args:
+            state: Current agent state
+            
+        Returns:
+            Updated state
+        """
+        messages = state["messages"]
+        last_message = messages[-1].content if messages else ""
+        
+        # List recent events
+        result = list_upcoming_events(max_results=10, days_ahead=7)
+        
+        if result["status"] != "success" or not result.get("events"):
+            state["response"] = "Não encontrei eventos para editar."
+            state["messages"] = state["messages"] + [AIMessage(content=state["response"])]
+            return state
+        
+        events = result["events"]
+        
+        # Identify event and new time
+        system_prompt = f"""Você precisa identificar qual evento editar e o novo horário.
+
+Eventos disponíveis:
+"""
+        for idx, event in enumerate(events, 1):
+            summary = event.get('summary', 'Sem título')
+            start = event.get('start', '')
+            system_prompt += f"{idx}. {summary} - {start}\n"
+        
+        system_prompt += """
+Analise a mensagem e retorne JSON:
+{
+    "event_number": <número do evento 1 a """ + str(len(events)) + """, ou 0 se não identificar>,
+    "new_time": "<novo horário em formato ISO YYYY-MM-DDTHH:MM:SS ou vazio se não especificado>"
+}
+
+Data/hora atual: """ + datetime.now().strftime("%Y-%m-%d %H:%M") + """
+
+Exemplos:
+- "mudar reunião 1 para amanhã 15h" -> {"event_number": 1, "new_time": "2026-...-15:00:00"}
+- "editar a reunião de projeto" -> {"event_number": <número correspondente>, "new_time": ""}"""
+
+        try:
+            response = self.llm.invoke([
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=last_message)
+            ])
+            
+            # Parse JSON response
+            json_match = re.search(r'\{.*\}', response.content, re.DOTALL)
+            if not json_match:
+                raise ValueError("No JSON found in response")
+            
+            edit_info = json.loads(json_match.group())
+            event_number = edit_info.get("event_number", 0)
+            new_time = edit_info.get("new_time", "")
+            
+            if event_number < 1 or event_number > len(events):
+                response_text = "📅 **Eventos disponíveis para editar:**\n\n"
+                for idx, event in enumerate(events, 1):
+                    summary = event.get('summary', 'Sem título')
+                    start = event.get('start', '')
+                    if 'T' in start:
+                        dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
+                        date_str = dt.strftime('%d/%m às %H:%M')
+                    else:
+                        date_str = start
+                    response_text += f"{idx}. **{summary}** - {date_str}\n"
+                
+                response_text += "\nQual evento você deseja editar e para qual horário?"
+                state["response"] = response_text
+            elif not new_time:
+                event_to_edit = events[event_number - 1]
+                response_text = f"📅 Evento selecionado: **{event_to_edit.get('summary')}**\n\n"
+                response_text += "Para qual horário você quer mudar? (ex: amanhã 15h, hoje 18h)"
+                state["response"] = response_text
+            else:
+                event_to_edit = events[event_number - 1]
+                event_id = event_to_edit.get('id')
+                
+                # Calculate duration from original event
+                start_str = event_to_edit.get('start', '')
+                end_str = event_to_edit.get('end', '')
+                
+                duration_minutes = 60  # Default
+                if 'T' in start_str and 'T' in end_str:
+                    start_dt = datetime.fromisoformat(start_str.replace('Z', '+00:00'))
+                    end_dt = datetime.fromisoformat(end_str.replace('Z', '+00:00'))
+                    duration_minutes = int((end_dt - start_dt).total_seconds() / 60)
+                
+                edit_result = update_meeting(
+                    event_id=event_id,
+                    new_start_time=new_time,
+                    duration_minutes=duration_minutes
+                )
+                
+                if edit_result["status"] == "success":
+                    response_text = f"✅ Evento atualizado com sucesso!\n\n"
+                    response_text += f"📅 **{event_to_edit.get('summary')}**\n"
+                    response_text += f"🕐 Novo horário: {new_time}"
+                else:
+                    response_text = f"❌ Erro ao editar: {edit_result.get('message')}"
+                
+                state["response"] = response_text
+                logger.info("Event edited", event_id=event_id, new_time=new_time)
+            
+            state["messages"] = state["messages"] + [AIMessage(content=state["response"])]
+            
+        except Exception as e:
+            logger.error("Error editing event", error=str(e))
+            state["response"] = f"Erro ao editar evento: {str(e)}"
+            state["messages"] = state["messages"] + [AIMessage(content=state["response"])]
         
         return state
