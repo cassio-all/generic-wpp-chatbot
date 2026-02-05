@@ -1,0 +1,46 @@
+id: whatsapp-chatbot-main
+namespace: whatsapp-chatbot
+
+description: Main orchestration workflow for WhatsApp chatbot
+
+inputs:
+  - name: message
+    type: STRING
+    description: Incoming WhatsApp message
+  - name: sender
+    type: STRING
+    description: Sender phone number or ID
+
+tasks:
+  - id: log_incoming_message
+    type: io.kestra.core.tasks.log.Log
+    message: "Received message from {{ inputs.sender }}: {{ inputs.message }}"
+
+  - id: process_message
+    type: io.kestra.plugin.scripts.python.Commands
+    docker:
+      image: python:3.11-slim
+    beforeCommands:
+      - pip install -r /app/requirements.txt
+    commands:
+      - python -c "from src.agents import ChatbotOrchestrator; orchestrator = ChatbotOrchestrator(); response = orchestrator.process_message('{{ inputs.message }}', '{{ inputs.sender }}'); print(response)"
+    outputFiles:
+      - "*.json"
+
+  - id: log_response
+    type: io.kestra.core.tasks.log.Log
+    message: "Response generated: {{ outputs.process_message.stdout }}"
+
+  - id: send_response
+    type: io.kestra.plugin.scripts.python.Commands
+    docker:
+      image: python:3.11-slim
+    commands:
+      - echo "Sending response to {{ inputs.sender }}"
+      - echo "{{ outputs.process_message.stdout }}"
+
+triggers:
+  - id: schedule
+    type: io.kestra.core.models.triggers.types.Schedule
+    cron: "*/5 * * * *"  # Run every 5 minutes to check for new messages
+    disabled: true  # Enable when WhatsApp integration is ready

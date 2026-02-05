@@ -1,0 +1,35 @@
+id: scheduled-reports
+namespace: whatsapp-chatbot
+
+description: Send scheduled reports via email or WhatsApp
+
+inputs:
+  - name: report_type
+    type: STRING
+    description: Type of report to generate
+    defaults: daily_summary
+
+tasks:
+  - id: generate_report
+    type: io.kestra.plugin.scripts.python.Commands
+    docker:
+      image: python:3.11-slim
+    beforeCommands:
+      - pip install -r /app/requirements.txt
+    commands:
+      - python -c "print('Report generated: {{ inputs.report_type }}')"
+
+  - id: send_report
+    type: io.kestra.plugin.scripts.python.Commands
+    docker:
+      image: python:3.11-slim
+    beforeCommands:
+      - pip install -r /app/requirements.txt
+    commands:
+      - python -c "from src.tools import send_email; result = send_email('admin@example.com', '{{ inputs.report_type }}', 'Report content here'); print(result)"
+
+triggers:
+  - id: daily_report
+    type: io.kestra.core.models.triggers.types.Schedule
+    cron: "0 9 * * *"  # Run daily at 9 AM
+    disabled: true  # Enable when ready
