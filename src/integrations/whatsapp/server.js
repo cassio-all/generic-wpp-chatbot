@@ -256,6 +256,11 @@ whatsappClient.on('message', async (message) => {
         return;
     }
     
+    // Ignore channels/newsletters - silently (IDs start with 120363 or contain @newsletter)
+    if (message.from.startsWith('120363') || message.from.includes('@newsletter')) {
+        return;
+    }
+    
     // Truncate message for logs
     const bodyPreview = message.body.length > 50 ? 
         message.body.substring(0, 50) + '...' : 
@@ -265,6 +270,23 @@ whatsappClient.on('message', async (message) => {
     
     // Get contact info
     const contact = await message.getContact();
+    
+    // Handle audio messages
+    let audioData = null;
+    if (message.hasMedia && message.type === 'ptt') {
+        try {
+            console.log('🎤 Downloading audio message...');
+            const media = await message.downloadMedia();
+            audioData = {
+                mimetype: media.mimetype,
+                data: media.data, // base64
+                filename: media.filename || 'audio.ogg'
+            };
+            console.log('✅ Audio downloaded:', media.mimetype);
+        } catch (error) {
+            console.error('❌ Error downloading audio:', error.message);
+        }
+    }
     
     // Send to Python for processing
     sendToPython({
@@ -276,6 +298,7 @@ whatsappClient.on('message', async (message) => {
             timestamp: message.timestamp,
             hasMedia: message.hasMedia,
             isGroup: message.from.includes('@g.us'),
+            audio: audioData,
             contact: {
                 name: contact.name || contact.pushname || contact.number,
                 number: contact.number,

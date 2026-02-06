@@ -8,8 +8,16 @@ import asyncio
 import json
 import structlog
 import websockets
+import base64
+import tempfile
+import os
 from typing import Optional, Callable, Dict, Any
 from dataclasses import dataclass
+from dotenv import load_dotenv
+from openai import OpenAI
+
+# Load environment variables
+load_dotenv()
 
 logger = structlog.get_logger(__name__)
 
@@ -24,6 +32,7 @@ class WhatsAppMessage:
     contact_name: str
     is_group: bool = False
     has_media: bool = False
+    audio: Optional[Dict[str, Any]] = None
 
 
 class WhatsAppClient:
@@ -46,6 +55,7 @@ class WhatsAppClient:
         self.connected = False
         self.whatsapp_ready = False
         self.whatsapp_info: Dict[str, Any] = {}
+        self.openai_client = OpenAI()  # For Whisper transcription
         
     async def connect(self):
         """Connect to the Node.js bridge server."""
@@ -83,6 +93,53 @@ class WhatsAppClient:
             
         except Exception as e:
             logger.error("Error in listen loop", error=str(e))
+    
+    async def _transcribe_audio(self, audio_data: Dict[str, Any]) -> Optional[str]:
+        """Transcribe audio using OpenAI Whisper.
+        
+        Args:
+            audio_data: Dictionary with 'data' (base64), 'mimetype', 'filename'
+            
+        Returns:
+            Transcribed text or None if error
+        """
+        temp_file = None
+        try:
+            # Decode base64 audio
+            audio_bytes = base64.b64decode(audio_data['data'])
+            
+            # Save to temporary file
+            # Whisper expects actual audio file extensions
+            extension = '.ogg' if 'ogg' in audio_data['mimetype'] else '.mp3'
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=extension)
+            temp_file.write(audio_bytes)
+            temp_file.close()
+            
+            logger.info("🎤 Transcribing audio...", size=len(audio_bytes))
+            
+            # Transcribe with Whisper
+            with open(temp_file.name, 'rb') as audio_file:
+                transcription = self.openai_client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file,
+                    language="pt"  # Portuguese
+                )
+            
+            text = transcription.text
+            logger.info("✅ Audio transcribed", text=text[:100])
+            return text
+            
+        except Exception as e:
+            logger.error("❌ Error transcribing audio", error=str(e))
+            return None
+            
+        finally:
+            # Clean up temp file
+            if temp_file and os.path.exists(temp_file.name):
+                try:
+                    os.unlink(temp_file.name)
+                except Exception as e:
+                    logger.warning("Failed to delete temp file", error=str(e))
     
     async def _handle_bridge_message(self, data: Dict[str, Any]):
         """Handle messages from the Node.js bridge.
@@ -157,15 +214,36 @@ class WhatsAppClient:
                 logger.debug("Ignoring group message", from_number=from_number)
                 return
             
+            # Ignore channels/newsletters
+            if from_number.startswith("120363") or "@newsletter" in from_number:
+                logger.debug("Ignoring channel/newsletter message", from_number=from_number)
+                return
+            
+            # Handle audio transcription if present
+            body = msg_data["body"]
+            audio_data = msg_data.get("audio")
+            
+            if audio_data:
+                logger.info("🎤 Audio message received, transcribing...")
+                transcribed_text = await self._transcribe_audio(audio_data)
+                
+                if transcribed_text:
+                    body = transcribed_text
+                    logger.info("✅ Using transcribed text", text=body[:100])
+                else:
+                    body = "[Mensagem de áudio - erro na transcrição]"
+                    logger.error("❌ Failed to transcribe audio")
+            
             contact = msg_data.get("contact", {})
             message = WhatsAppMessage(
                 id=msg_data["id"],
                 from_number=from_number,
-                body=msg_data["body"],
+                body=body,
                 timestamp=msg_data["timestamp"],
                 contact_name=contact.get("name", "Unknown"),
                 is_group=msg_data.get("isGroup", False),
-                has_media=msg_data.get("hasMedia", False)
+                has_media=msg_data.get("hasMedia", False),
+                audio=audio_data
             )
             
             logger.info(
