@@ -208,7 +208,12 @@ __marimo__/
 
 # Project specific
 data/vector_db/
+data/checkpoints.db
+data/checkpoints.db-shm
+data/checkpoints.db-wal
 credentials/*.json
 !credentials/.gitkeep
 logs/
 *.log
+src/integrations/whatsapp/.wwebjs_auth/
+src/integrations/whatsapp/.wwebjs_cache/
