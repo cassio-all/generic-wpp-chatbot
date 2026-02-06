@@ -1,7 +1,9 @@
 """Knowledge base service using FAISS vector database."""
 import os
+import hashlib
+import asyncio
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict
 from langchain_community.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
@@ -19,7 +21,10 @@ class KnowledgeBaseService:
         """Initialize the knowledge base service."""
         self.embeddings = OpenAIEmbeddings(openai_api_key=settings.openai_api_key)
         self.vector_store: Optional[FAISS] = None
+        self.files_hash: Dict[str, str] = {}  # Track file changes
+        self.monitor_task: Optional[asyncio.Task] = None
         self._initialize_vector_store()
+        # Note: call start_monitoring() after event loop is running
     
     def _initialize_vector_store(self):
         """Initialize or load the FAISS vector store."""
@@ -155,3 +160,83 @@ class KnowledgeBaseService:
         """Rebuild the entire knowledge base from source files."""
         logger.info("Rebuilding knowledge base")
         self._build_knowledge_base()
+    
+    def _get_files_hash(self) -> Dict[str, str]:
+        """Get hash of all files in knowledge base directory.
+        
+        Returns:
+            Dictionary mapping file paths to their MD5 hashes
+        """
+        files_hash = {}
+        if not os.path.exists(settings.knowledge_base_path):
+            return files_hash
+        
+        for file_path in Path(settings.knowledge_base_path).rglob("*.txt"):
+            try:
+                with open(file_path, 'rb') as f:
+                    file_hash = hashlib.md5(f.read()).hexdigest()
+                    files_hash[str(file_path)] = file_hash
+            except Exception as e:
+                logger.warning("Error hashing file", file=str(file_path), error=str(e))
+        
+        return files_hash
+    
+    def _check_for_changes(self) -> bool:
+        """Check if knowledge base files have changed.
+        
+        Returns:
+            True if changes detected, False otherwise
+        """
+        current_hash = self._get_files_hash()
+        
+        # Check if any files added, removed, or modified
+        if set(current_hash.keys()) != set(self.files_hash.keys()):
+            logger.info("Knowledge base files changed (added/removed)")
+            return True
+        
+        for file_path, file_hash in current_hash.items():
+            if self.files_hash.get(file_path) != file_hash:
+                logger.info("Knowledge base file modified", file=file_path)
+                return True
+        
+        return False
+    
+    async def _monitor_changes(self):
+        """Monitor knowledge base directory for changes and auto-reload."""
+        logger.info("📁 Starting knowledge base monitoring (checks every 60s)")
+        self.files_hash = self._get_files_hash()
+        
+        while True:
+            try:
+                await asyncio.sleep(60)  # Check every 60 seconds
+                
+                if self._check_for_changes():
+                    logger.info("🔄 Changes detected, reindexing knowledge base...")
+                    self._build_knowledge_base()
+                    self.files_hash = self._get_files_hash()
+                    logger.info("✅ Knowledge base reindexed successfully")
+                    
+            except asyncio.CancelledError:
+                logger.info("Knowledge base monitoring stopped")
+                break
+            except Exception as e:
+                logger.error("Error monitoring knowledge base", error=str(e))
+                await asyncio.sleep(60)  # Continue monitoring even on error
+    
+    def start_monitoring(self):
+        """Start the monitoring task. Must be called after event loop is running."""
+        if self.monitor_task is not None:
+            logger.warning("Monitoring already started")
+            return
+        
+        try:
+            self.monitor_task = asyncio.create_task(self._monitor_changes())
+            logger.info("📁 Knowledge base monitoring started (checks every 60s)")
+        except RuntimeError as e:
+            logger.error("Failed to start monitoring - no event loop", error=str(e))
+    
+    def stop_monitoring(self):
+        """Stop the monitoring task."""
+        if self.monitor_task:
+            self.monitor_task.cancel()
+            logger.info("Knowledge base monitoring stopped")

@@ -82,6 +82,11 @@ async def main():
     orchestrator = ChatbotOrchestrator()
     logger.info("✅ Orchestrator ready")
     
+    # Start knowledge base monitoring (must be after event loop is running)
+    from src.tools.knowledge_tool import get_kb_service
+    kb_service = get_kb_service()
+    kb_service.start_monitoring()
+    
     # Initialize WhatsApp client
     logger.info("Initializing WhatsApp client...")
     whatsapp_client = WhatsAppClient(
