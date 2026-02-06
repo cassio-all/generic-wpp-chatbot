@@ -11,6 +11,7 @@ import websockets
 import base64
 import tempfile
 import os
+import time
 from typing import Optional, Callable, Dict, Any
 from dataclasses import dataclass
 from dotenv import load_dotenv
@@ -33,6 +34,8 @@ class WhatsAppMessage:
     is_group: bool = False
     has_media: bool = False
     audio: Optional[Dict[str, Any]] = None
+    image: Optional[Dict[str, Any]] = None
+    document: Optional[Dict[str, Any]] = None
 
 
 class WhatsAppClient:
@@ -56,6 +59,10 @@ class WhatsAppClient:
         self.whatsapp_ready = False
         self.whatsapp_info: Dict[str, Any] = {}
         self.openai_client = OpenAI()  # For Whisper transcription
+        
+        # Auto-pause when manual reply detected
+        self.paused_contacts: Dict[str, float] = {}  # {number: timestamp}
+        self.pause_duration = 60  # seconds
         
     async def connect(self):
         """Connect to the Node.js bridge server."""
@@ -141,6 +148,115 @@ class WhatsAppClient:
                 except Exception as e:
                     logger.warning("Failed to delete temp file", error=str(e))
     
+    async def _analyze_image(self, image_data: Dict[str, Any]) -> Optional[str]:
+        """Analyze image using GPT-4 Vision.
+        
+        Args:
+            image_data: Dictionary with 'data' (base64), 'mimetype', 'filename'
+            
+        Returns:
+            Image description or None if error
+        """
+        try:
+            logger.info("🖼️  Analyzing image...", mimetype=image_data['mimetype'])
+            
+            # Prepare image for GPT-4 Vision
+            base64_image = image_data['data']
+            
+            # Call GPT-4 Vision
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",  # gpt-4o-mini supports vision
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "Descreva esta imagem em português de forma detalhada. Se houver texto na imagem, transcreva-o."
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:{image_data['mimetype']};base64,{base64_image}"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=500
+            )
+            
+            description = response.choices[0].message.content
+            logger.info("✅ Image analyzed", description=description[:100])
+            return description
+            
+        except Exception as e:
+            logger.error("❌ Error analyzing image", error=str(e))
+            return None
+    
+    async def _extract_pdf_text(self, document_data: Dict[str, Any]) -> Optional[str]:
+        """Extract text from PDF document.
+        
+        Args:
+            document_data: Dictionary with 'data' (base64), 'mimetype', 'filename'
+            
+        Returns:
+            Extracted text or None if error
+        """
+        temp_file = None
+        try:
+            # Only process PDFs for now
+            if 'pdf' not in document_data['mimetype'].lower():
+                logger.info("⚠️  Non-PDF document, skipping text extraction", mimetype=document_data['mimetype'])
+                return None
+            
+            # Decode base64 document
+            doc_bytes = base64.b64decode(document_data['data'])
+            
+            # Save to temporary file
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+            temp_file.write(doc_bytes)
+            temp_file.close()
+            
+            logger.info("📄 Extracting text from PDF...", filename=document_data['filename'])
+            
+            # Extract text with PyPDF2
+            try:
+                from PyPDF2 import PdfReader
+                
+                reader = PdfReader(temp_file.name)
+                text_parts = []
+                
+                for page_num, page in enumerate(reader.pages, 1):
+                    text = page.extract_text()
+                    if text.strip():
+                        text_parts.append(f"--- Página {page_num} ---\n{text}")
+                
+                full_text = "\n\n".join(text_parts)
+                
+                if full_text.strip():
+                    logger.info("✅ Text extracted from PDF", pages=len(reader.pages), chars=len(full_text))
+                    return full_text
+                else:
+                    logger.warning("⚠️  PDF has no extractable text (might be scanned)")
+                    return None
+                    
+            except ImportError:
+                logger.error("❌ PyPDF2 not installed - run: pip install PyPDF2")
+                return None
+            
+        except Exception as e:
+            logger.error("❌ Error extracting PDF text", error=str(e))
+            return None
+            
+        finally:
+            # Clean up temp file
+            if temp_file and os.path.exists(temp_file.name):
+                try:
+                    os.unlink(temp_file.name)
+                except Exception as e:
+                    logger.warning("Failed to delete temp file", error=str(e))
+    
     async def _handle_bridge_message(self, data: Dict[str, Any]):
         """Handle messages from the Node.js bridge.
         
@@ -186,6 +302,15 @@ class WhatsAppClient:
         
         elif msg_type == "incoming_message":
             await self._handle_incoming_message(data.get("message"))
+        
+        elif msg_type == "manual_reply":
+            # User replied manually, pause bot for this contact
+            contact = data.get("contact")
+            if contact:
+                self.paused_contacts[contact] = time.time()
+                logger.info("⏸️  Bot paused for contact (manual reply detected)", 
+                           contact=contact, 
+                           duration_seconds=self.pause_duration)
             
         elif msg_type == "message_sent":
             if data.get("success"):
@@ -219,9 +344,53 @@ class WhatsAppClient:
                 logger.debug("Ignoring channel/newsletter message", from_number=from_number)
                 return
             
+            # Ignore WhatsApp Business accounts and channels (@lid)
+            if "@lid" in from_number:
+                logger.debug("Ignoring WhatsApp Business/Channel", from_number=from_number)
+                return
+            
+            # Ignore empty messages
+            body = msg_data.get("body", "")
+            if not body and not msg_data.get("audio") and not msg_data.get("image") and not msg_data.get("document"):
+                logger.debug("Ignoring empty message", from_number=from_number)
+                return
+            
+            # Check if bot is paused for this contact (manual reply detected)
+            if from_number in self.paused_contacts:
+                pause_time = self.paused_contacts[from_number]
+                elapsed = time.time() - pause_time
+                
+                if elapsed < self.pause_duration:
+                    remaining = int(self.pause_duration - elapsed)
+                    logger.info("⏸️  Bot paused for this contact", 
+                               contact=from_number, 
+                               remaining_seconds=remaining)
+                    return  # Ignore message while paused
+                else:
+                    # Pause expired, remove from paused list
+                    del self.paused_contacts[from_number]
+                    logger.info("▶️  Bot resumed for contact (pause expired)", contact=from_number)
+            
             # Handle audio transcription if present
             body = msg_data["body"]
             audio_data = msg_data.get("audio")
+            image_data = msg_data.get("image")
+            document_data = msg_data.get("document")
+            
+            # Check for unsupported media type
+            if body.startswith("[Tipo de mídia não suportado:"):
+                logger.warning("⚠️  Unsupported media type received", body=body)
+                # Send helpful response
+                await self.send_message(
+                    from_number,
+                    "⚠️ Desculpe, este tipo de arquivo ainda não é suportado.\n\n"
+                    "📱 Tipos suportados:\n"
+                    "• 🎤 Áudios (transcrição automática)\n"
+                    "• 🖼️ Imagens (análise visual)\n"
+                    "• 📄 Documentos PDF (extração de texto)\n\n"
+                    "Por favor, envie mensagens de texto ou um dos formatos acima."
+                )
+                return  # Don't process further
             
             if audio_data:
                 logger.info("🎤 Audio message received, transcribing...")
@@ -234,6 +403,38 @@ class WhatsAppClient:
                     body = "[Mensagem de áudio - erro na transcrição]"
                     logger.error("❌ Failed to transcribe audio")
             
+            elif image_data:
+                logger.info("🖼️  Image message received, analyzing...")
+                image_description = await self._analyze_image(image_data)
+                
+                if image_description:
+                    # Combine caption (if any) with image description
+                    if body:
+                        body = f"[Imagem com legenda: {body}]\n\nDescrição da imagem: {image_description}"
+                    else:
+                        body = f"[Imagem enviada]\n\nDescrição: {image_description}"
+                    logger.info("✅ Using image description", text=body[:100])
+                else:
+                    body = "[Imagem enviada - erro na análise]"
+                    logger.error("❌ Failed to analyze image")
+            
+            elif document_data:
+                logger.info("📄 Document message received, extracting text...")
+                extracted_text = await self._extract_pdf_text(document_data)
+                
+                if extracted_text:
+                    # Truncate if too long (keep first 5000 chars)
+                    if len(extracted_text) > 5000:
+                        extracted_text = extracted_text[:5000] + "\n\n[... texto truncado ...]"
+                    
+                    filename = document_data.get('filename', 'documento')
+                    body = f"[Documento PDF: {filename}]\n\nConteúdo extraído:\n\n{extracted_text}"
+                    logger.info("✅ Using extracted PDF text", chars=len(extracted_text))
+                else:
+                    filename = document_data.get('filename', 'documento')
+                    body = f"[Documento enviado: {filename}]\n\n(Não foi possível extrair texto)"
+                    logger.warning("⚠️  Could not extract text from document")
+            
             contact = msg_data.get("contact", {})
             message = WhatsAppMessage(
                 id=msg_data["id"],
@@ -243,7 +444,9 @@ class WhatsAppClient:
                 contact_name=contact.get("name", "Unknown"),
                 is_group=msg_data.get("isGroup", False),
                 has_media=msg_data.get("hasMedia", False),
-                audio=audio_data
+                audio=audio_data,
+                image=image_data,
+                document=document_data
             )
             
             logger.info(

@@ -50,9 +50,19 @@
   - [x] Indicadores de digitação e status
   - [x] Servidor rodando em http://localhost:8000
 - [x] Base de Conhecimento (RAG)
-  - [x] ChromaDB para vetores
-  - [x] Embedding de documentos
+  - [x] **FAISS para vetores** (migrado de ChromaDB) 🆕
+  - [x] Embedding de documentos (OpenAI)
   - [x] Busca semântica
+  - [x] **Monitoramento automático de mudanças** 🆕
+    - [x] Verificação a cada 60s (hash MD5)
+    - [x] Reindexação automática ao detectar novos arquivos
+    - [x] Sem necessidade de reiniciar serviço
+  - [x] **Filtro de relevância inteligente** 🆕
+    - [x] Detecta conteúdo genérico (boas-vindas, etc)
+    - [x] Fallback automático para web search
+  - [x] **Validação temporal** 🆕
+    - [x] Verifica datas com contexto atual
+    - [x] Previne informações desatualizadas
 - [x] Router Agent inteligente
 - [x] CLI funcional para testes
 
@@ -73,10 +83,16 @@
 - [x] Memória de conversas por contato
 - [x] Script de inicialização automática
 - [x] Documentação completa
-- [ ] Suporte a mensagens de voz (futuro)
+- [x] **Filtros inteligentes** 🆕
+  - [x] Ignorar Stories/Status broadcasts
+  - [x] Ignorar mensagens de grupos (@g.us)
+  - [x] Ignorar canais/newsletters (120363...)
+- [x] **Transcrição de áudio com Whisper** 🆕
+  - [x] Download automático de áudios (PTT)
+  - [x] Transcrição via OpenAI Whisper API
+  - [x] Processamento como mensagem de texto
 - [ ] Suporte a imagens/arquivos (futuro)
 - [ ] Status de leitura (futuro)
-- [ ] Grupos do WhatsApp (futuro)
 
 **Status:** ✅ Funcional e testado
 
@@ -407,8 +423,8 @@
 9. ✅ Task Management Agent
 
 ---
-
-## 📝 Notas
+6 de fevereiro de 2026
+**Versão atual:** 0.2.0 (WhatsApp + Audio + Knowledge Base Automático
 
 - **Prioridade:** Alta = essencial, Média = importante, Baixa = nice-to-have
 - **Complexidade:** Baseada em tempo de desenvolvimento estimado

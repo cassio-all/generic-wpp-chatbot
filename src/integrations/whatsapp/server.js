@@ -243,8 +243,22 @@ whatsappClient.on('disconnected', (reason) => {
 });
 
 whatsappClient.on('message', async (message) => {
-    // Only process messages from users (not from us)
-    if (message.fromMe) return;
+    // Detect manual replies (from you) and notify Python to pause bot
+    if (message.fromMe) {
+        console.log('👤 Manual reply detected for:', message.to);
+        sendToPython({
+            type: 'manual_reply',
+            contact: message.to  // The person you replied to
+        });
+        return;  // Don't process your own messages
+    }
+    
+    // Ignore old messages (only process recent ones - last 30 seconds)
+    const messageAge = (Date.now() / 1000) - message.timestamp;
+    if (messageAge > 30) {
+        console.log('⏳ Ignoring old message (age:', Math.round(messageAge), 'seconds)');
+        return;
+    }
     
     // Ignore status broadcasts (Stories) - silently
     if (message.from === 'status@broadcast' || message.from.includes('broadcast')) {
@@ -258,6 +272,18 @@ whatsappClient.on('message', async (message) => {
     
     // Ignore channels/newsletters - silently (IDs start with 120363 or contain @newsletter)
     if (message.from.startsWith('120363') || message.from.includes('@newsletter')) {
+        return;
+    }
+    
+    // Ignore WhatsApp Business accounts and channels (@lid)
+    if (message.from.includes('@lid')) {
+        console.log('🏪 Ignoring WhatsApp Business/Channel:', message.from);
+        return;
+    }
+    
+    // Ignore empty messages
+    if (!message.body && !message.hasMedia) {
+        console.log('⚠️  Ignoring empty message from:', message.from);
         return;
     }
     
@@ -288,6 +314,47 @@ whatsappClient.on('message', async (message) => {
         }
     }
     
+    // Handle image messages
+    let imageData = null;
+    if (message.hasMedia && message.type === 'image') {
+        try {
+            console.log('🖼️  Downloading image message...');
+            const media = await message.downloadMedia();
+            imageData = {
+                mimetype: media.mimetype,
+                data: media.data, // base64
+                filename: media.filename || 'image.jpg'
+            };
+            console.log('✅ Image downloaded:', media.mimetype);
+        } catch (error) {
+            console.error('❌ Error downloading image:', error.message);
+        }
+    }
+    
+    // Handle document messages (PDF, DOCX, etc)
+    let documentData = null;
+    if (message.hasMedia && message.type === 'document') {
+        try {
+            console.log('📄 Downloading document message...');
+            const media = await message.downloadMedia();
+            documentData = {
+                mimetype: media.mimetype,
+                data: media.data, // base64
+                filename: media.filename || 'document.pdf'
+            };
+            console.log('✅ Document downloaded:', media.mimetype, '-', media.filename);
+        } catch (error) {
+            console.error('❌ Error downloading document:', error.message);
+        }
+    }
+    
+    // Check for unsupported media types
+    if (message.hasMedia && !audioData && !imageData && !documentData) {
+        console.log('⚠️  Unsupported media type:', message.type);
+        // Override body to inform user
+        message.body = `[Tipo de mídia não suportado: ${message.type}]`;
+    }
+    
     // Send to Python for processing
     sendToPython({
         type: 'incoming_message',
@@ -299,6 +366,8 @@ whatsappClient.on('message', async (message) => {
             hasMedia: message.hasMedia,
             isGroup: message.from.includes('@g.us'),
             audio: audioData,
+            image: imageData,
+            document: documentData,
             contact: {
                 name: contact.name || contact.pushname || contact.number,
                 number: contact.number,
