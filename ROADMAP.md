@@ -87,12 +87,33 @@
   - [x] Ignorar Stories/Status broadcasts
   - [x] Ignorar mensagens de grupos (@g.us)
   - [x] Ignorar canais/newsletters (120363...)
+  - [x] Ignorar WhatsApp Business/Channels (@lid)
+  - [x] Ignorar mensagens antigas (histórico ao conectar)
+  - [x] Ignorar mensagens vazias (sem body/mídia)
 - [x] **Transcrição de áudio com Whisper** 🆕
   - [x] Download automático de áudios (PTT)
   - [x] Transcrição via OpenAI Whisper API
   - [x] Processamento como mensagem de texto
-- [ ] Suporte a imagens/arquivos (futuro)
-- [ ] Status de leitura (futuro)
+- [x] **Suporte a imagens com GPT-4 Vision** 🆕
+  - [x] Download automático de imagens
+  - [x] Análise visual com GPT-4o-mini
+  - [x] Descrição detalhada em português
+  - [x] Transcrição de texto em imagens
+  - [x] Combinação com legenda (caption)
+- [x] **Suporte a documentos PDF** 🆕
+  - [x] Download automático de PDFs
+  - [x] Extração de texto com PyPDF2
+  - [x] Processamento página por página
+  - [x] Truncamento inteligente (5000 chars)
+- [x] **Tratamento de mídia não suportada** 🆕
+  - [x] Detecção de vídeos, stickers, locations, contacts
+  - [x] Resposta educativa ao usuário
+  - [x] Lista de formatos suportados
+- [x] **Sistema de pausa automática** 🆕
+  - [x] Detecta quando você responde manualmente
+  - [x] Pausa bot por 1 minuto para aquele contato
+  - [x] Auto-resume após timeout
+  - [x] Evita conflito bot + resposta manual
 
 **Status:** ✅ Funcional e testado
 
@@ -433,5 +454,5 @@
 
 ---
 
-**Última atualização:** 4 de fevereiro de 2026
-**Versão atual:** 0.1.0 (MVP funcional)
+**Última atualização:** 6 de fevereiro de 2026  
+**Versão atual:** 0.3.0 (WhatsApp Mídia Completo + Sistema de Pausa Inteligente)
