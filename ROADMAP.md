@@ -367,15 +367,76 @@
 **Prioridade:** Alta  
 **Complexidade:** Média
 
-- [ ] Unit tests (pytest)
-- [ ] Integration tests
-- [ ] E2E tests
-- [ ] Coverage > 80%
-- [ ] CI/CD (GitHub Actions)
+- [x] **Estrutura de testes com pytest** ✅ 🆕
+  - [x] pytest configurado com cobertura
+  - [x] pytest-asyncio para testes async
+  - [x] pytest-cov para relatórios
+  - [x] pytest-mock para mocking
+- [x] **Testes de mídia WhatsApp** ✅ 🆕
+  - [x] Transcrição de áudio (success + error)
+  - [x] Análise de imagens (GPT-4 Vision + OCR)
+  - [x] Extração de PDFs (success + non-PDF)
+  - [x] Filtros de mensagens (empty + @lid)
+  - [x] Sistema de auto-pause (pause + ignore + resume)
+  - [x] Mídia não suportada
+- [x] **Testes de Knowledge Base** ✅ 🆕
+  - [x] Inicialização e carregamento FAISS
+  - [x] Busca por similaridade
+  - [x] Monitoramento de arquivos (MD5)
+  - [x] Detecção de mudanças
+  - [x] Reindexação automática
+  - [x] Adicionar documentos
+  - [x] Rebuild completo
+- [x] **Testes do Orchestrator** ✅ 🆕
+  - [x] Classificação de intents
+  - [x] Roteamento para agentes (calendar, task, email, knowledge, general)
+  - [x] Gerenciamento de contexto
+  - [x] Tratamento de erros
+  - [x] Integração com knowledge base
+- [x] **Testes de Integração** ✅ 🆕
+  - [x] Fluxo completo WhatsApp → Orchestrator → Agent
+  - [x] Fluxo de transcrição de áudio
+  - [x] Fluxo de análise de imagens
+  - [x] Fluxo de extração de PDFs
+  - [x] Workflows de Calendar e Task
+  - [x] Sistema de auto-pause completo
+  - [x] Recuperação de erros (API failures)
+  - [x] Mensagens malformadas
+- [x] **Infraestrutura de testes** ✅ 🆕
+  - [x] Script de execução (`run_tests.sh`)
+  - [x] Configuração de cobertura (`.coveragerc`)
+  - [x] Documentação completa (`tests/README.md`)
+  - [x] Fixtures reutilizáveis
+  - [x] Mocking de APIs externas (OpenAI, PyPDF2)
+- [ ] **Próximos passos de testes** ⏳
+  - [ ] Testes de segurança (validação de entrada)
+  - [ ] Testes de performance (rate limiting)
+  - [ ] E2E tests com WhatsApp real
+  - [ ] CI/CD (GitHub Actions)
+  - [ ] Cobertura >80% (atual: ~60%)
+
+**Status:** 🟡 Em desenvolvimento ativo
+
+**Arquivos implementados:**
+- `tests/test_whatsapp_media.py` ✅ (12 testes)
+- `tests/test_knowledge_base.py` ✅ (13 testes)
+- `tests/test_orchestrator.py` ✅ (15 testes)
+- `tests/test_integration.py` ✅ (14 testes)
+- `tests/README.md` ✅ (documentação completa)
+- `pytest.ini` ✅ (configuração com coverage)
+- `.coveragerc` ✅ (configuração de cobertura)
+- `run_tests.sh` ✅ (script de execução)
+- `requirements.txt` ✅ (atualizado com pytest-cov, pytest-mock)
+
+**Arquivos existentes (a expandir):**
+- `tests/test_agents.py` (expandir cobertura)
+- `tests/test_tools.py` (expandir cobertura)
+- `tests/test_calendar_expanded.py` (ok)
+- `tests/test_task_agent.py` (ok)
 
 **Arquivos a criar:**
-- `tests/` (já existe, expandir)
-- `.github/workflows/test.yml`
+- `tests/test_security.py` (validação, sanitização)
+- `.github/workflows/test.yml` (CI/CD)
 
 #### 8.2 Performance
 **Prioridade:** Média  
