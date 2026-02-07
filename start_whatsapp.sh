@@ -42,12 +42,38 @@ fi
 # Start Node.js bridge in background
 echo "🌉 Starting Node.js bridge server..."
 cd "$WHATSAPP_DIR"
-node server.js &
+node server.js > /tmp/whatsapp-bridge.log 2>&1 &
 NODE_PID=$!
 cd "$SCRIPT_DIR"
 
-# Wait for bridge to start
-sleep 3
+# Wait for bridge to start and check health
+echo "⏳ Waiting for bridge server to initialize..."
+MAX_WAIT=30
+WAITED=0
+while [ $WAITED -lt $MAX_WAIT ]; do
+    if curl -s http://localhost:3000/health > /dev/null 2>&1; then
+        echo "✅ Bridge server started (PID: $NODE_PID)"
+        break
+    fi
+    
+    # Check if process is still alive
+    if ! kill -0 $NODE_PID 2>/dev/null; then
+        echo "❌ Bridge server crashed during startup"
+        echo "📋 Last 30 lines of log:"
+        tail -30 /tmp/whatsapp-bridge.log
+        exit 1
+    fi
+    
+    sleep 1
+    WAITED=$((WAITED + 1))
+    echo -n "."
+done
+echo ""
+
+if [ $WAITED -eq $MAX_WAIT ]; then
+    echo "⚠️ Bridge server took too long to start, but continuing..."
+    echo "📋 Check log: tail -f /tmp/whatsapp-bridge.log"
+fi
 
 # Check if bridge is running
 if ! kill -0 $NODE_PID 2>/dev/null; then

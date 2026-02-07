@@ -266,11 +266,29 @@ class WhatsAppClient:
         msg_type = data.get("type")
         
         if msg_type == "qr_code":
+            qr_data = data.get("qr", "")
             logger.info("📱 QR Code received - scan with WhatsApp")
             print("\n" + "="*60)
             print("📱 SCAN THIS QR CODE WITH WHATSAPP:")
-            print("="*60 + "\n")
-            # QR code already printed by Node.js server
+            print("="*60)
+            
+            # Display QR code in terminal
+            if qr_data:
+                try:
+                    import qrcode
+                    qr = qrcode.QRCode(version=1, box_size=1, border=1)
+                    qr.add_data(qr_data)
+                    qr.make(fit=True)
+                    qr.print_ascii(invert=True)
+                except ImportError:
+                    # Fallback: display raw QR data
+                    print("\n⚠️ Install qrcode for better display: pip install qrcode")
+                    print(f"\nQR Data: {qr_data[:50]}...")
+                except Exception as e:
+                    logger.error("Error displaying QR code", error=str(e))
+                    print(f"\nQR Data: {qr_data[:50]}...")
+            
+            print("\n" + "="*60 + "\n")
             
         elif msg_type == "status":
             status = data.get("status")

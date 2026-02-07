@@ -29,9 +29,29 @@ const whatsappClient = new Client({
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
             '--no-zygote',
-            '--single-process',
-            '--disable-gpu'
-        ]
+            '--disable-gpu',
+            '--disable-extensions',
+            '--disable-background-networking',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-breakpad',
+            '--disable-component-extensions-with-background-pages',
+            '--disable-features=TranslateUI,BlinkGenPropertyTrees',
+            '--disable-ipc-flooding-protection',
+            '--disable-renderer-backgrounding',
+            '--enable-features=NetworkService,NetworkServiceInProcess',
+            '--force-color-profile=srgb',
+            '--hide-scrollbars',
+            '--metrics-recording-only',
+            '--mute-audio',
+            '--disable-web-security'
+        ],
+        executablePath: process.env.CHROME_PATH || undefined,
+        timeout: 60000
+    },
+    webVersionCache: {
+        type: 'remote',
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
     }
 });
 
@@ -242,6 +262,25 @@ whatsappClient.on('disconnected', (reason) => {
     });
 });
 
+// Handle loading screen
+whatsappClient.on('loading_screen', (percent, message) => {
+    console.log(`⏳ Loading... ${percent}% - ${message}`);
+});
+
+// Handle remote session saved
+whatsappClient.on('remote_session_saved', () => {
+    console.log('💾 Remote session saved');
+});
+
+// Handle errors
+whatsappClient.on('error', (error) => {
+    console.error('❌ WhatsApp client error:', error);
+    sendToPython({
+        type: 'error',
+        error: error.message
+    });
+});
+
 whatsappClient.on('message', async (message) => {
     // Detect manual replies (from you) and notify Python to pause bot
     if (message.fromMe) {
@@ -403,12 +442,42 @@ console.log('🚀 Starting WhatsApp Bridge Server...');
 console.log(`🔌 WebSocket server listening on port ${PORT}`);
 console.log('⏳ Initializing WhatsApp client...');
 
-whatsappClient.initialize();
+// Retry initialization with exponential backoff
+let initAttempts = 0;
+const maxAttempts = 3;
+
+async function initializeWhatsApp() {
+    try {
+        initAttempts++;
+        console.log(`🔄 Initialization attempt ${initAttempts}/${maxAttempts}...`);
+        await whatsappClient.initialize();
+    } catch (error) {
+        console.error('❌ Initialization error:', error.message);
+        
+        if (initAttempts < maxAttempts) {
+            const delay = Math.min(1000 * Math.pow(2, initAttempts), 10000);
+            console.log(`⏳ Retrying in ${delay/1000}s...`);
+            setTimeout(() => initializeWhatsApp(), delay);
+        } else {
+            console.error('💥 Max initialization attempts reached. Please check:');
+            console.error('   1. Chrome/Chromium is installed');
+            console.error('   2. Delete .wwebjs_auth and .wwebjs_cache folders');
+            console.error('   3. Run: rm -rf .wwebjs_auth .wwebjs_cache');
+            process.exit(1);
+        }
+    }
+}
+
+initializeWhatsApp();
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
     console.log('\n👋 Shutting down gracefully...');
-    await whatsappClient.destroy();
+    try {
+        await whatsappClient.destroy();
+    } catch (e) {
+        console.error('Error during cleanup:', e.message);
+    }
     wss.close();
     process.exit(0);
 });
